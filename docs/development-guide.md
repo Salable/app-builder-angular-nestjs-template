@@ -22,6 +22,10 @@ Throw `ApiProblem` for expected domain failures. The global `ProblemDetailFilter
 serializes errors with `about:blank`, stable codes, safe details and correlation
 IDs. `ApiClient` is the browser interpretation boundary. Never forward provider
 error bodies or fabricate a problem-documentation domain.
+Server failures log their correlation ID, error class and safe SQLSTATE/Node code
+after the response finishes, without exception messages or request contents. A
+failed log cannot affect the response. Retry loading only reloads failed reads;
+failed writes preserve the draft or note and use the original Save/Delete action.
 
 `/api/v1/openapi.json` serves the NestJS OpenAPI document. Request validation and
 document schemas share `src/contracts/api.ts`; controller decorators provide

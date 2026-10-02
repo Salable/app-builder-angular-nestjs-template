@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { createApplication } from "../src/server/application";
 import { PostgresDatabase } from "../src/persistence/database";
@@ -289,9 +289,30 @@ async function verifyPrivateNotes(
     );
     await problem(await request("/api/v1/missing"), 404, "REQUEST_REJECTED");
     await database.query("ALTER TABLE notes RENAME TO notes_unavailable");
+    const diagnostic = mock.method(console, "error", () => undefined);
     try {
-      await problem(await request("/api/v1/notes", alice), 500, "INTERNAL_ERROR");
+      const failure = await problem(
+        await request("/api/v1/notes?token=private-query", alice),
+        500,
+        "INTERNAL_ERROR",
+      );
+      assert.deepEqual(
+        diagnostic.mock.calls.map(({ arguments: args }) => args),
+        [
+          [
+            "Request failed",
+            {
+              correlationId: failure.correlationId,
+              code: "INTERNAL_ERROR",
+              status: 500,
+              instance: "/api/v1/notes",
+              error: { type: "DatabaseError", code: "42P01" },
+            },
+          ],
+        ],
+      );
     } finally {
+      diagnostic.mock.restore();
       await database.query("ALTER TABLE notes_unavailable RENAME TO notes");
     }
     if (provider) {
@@ -317,5 +338,7 @@ async function problem(response: Response, status: number, code: string) {
   assert.equal(body.code, code);
   assert.equal(body.type, "about:blank");
   assert.ok(body.correlationId.startsWith("corr_"));
+  assert.equal(response.headers.get("x-correlation-id"), body.correlationId);
   assert.equal(JSON.stringify(body).includes("private provider"), false);
+  return body;
 }

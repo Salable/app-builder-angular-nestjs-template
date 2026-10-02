@@ -17,9 +17,12 @@ import type { Note } from "../contracts/api";
         </div>
         <button class="quiet" (click)="signOut()">Sign out</button>
       </div>
-      @if (error()) {
+      @if (error(); as failure) {
         <div role="alert" class="error">
-          {{ error() }} <button class="quiet" (click)="load()">Retry</button>
+          {{ failure.message }}
+          @if (failure.retryLoad) {
+            <button class="quiet" (click)="load()">Retry loading</button>
+          }
         </div>
       }
       @if (loading()) {
@@ -70,7 +73,7 @@ export class WorkspaceComponent {
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly removing = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly error = signal<{ message: string; retryLoad: boolean } | null>(null);
   readonly editingNoteId = signal<string | null>(null);
   content = "";
 
@@ -89,7 +92,7 @@ export class WorkspaceComponent {
       }
       this.notes.set((await this.api.notes()).notes);
     } catch (error) {
-      await this.showFailure(error);
+      await this.showFailure(error, true);
     } finally {
       this.loading.set(false);
     }
@@ -155,11 +158,11 @@ export class WorkspaceComponent {
     }
   }
 
-  private async showFailure(error: unknown) {
+  private async showFailure(error: unknown, retryLoad = false) {
     if (error instanceof ApiFailure && error.code === "SIGN_IN_REQUIRED") {
       await this.router.navigateByUrl("/sign-in");
       return;
     }
-    this.error.set(failureMessage(error));
+    this.error.set({ message: failureMessage(error), retryLoad });
   }
 }

@@ -12,6 +12,7 @@ type AuthMode = "SELF_HOSTED_BETTER_AUTH" | "NEON_AUTH";
 type AuthApplication = {
   origin: string;
   revokeSessions(email: string): Promise<void>;
+  withNotesUnavailable(operation: () => Promise<void>): Promise<void>;
 };
 
 export const test = base.extend<{
@@ -92,6 +93,14 @@ export const test = base.extend<{
         .toBe(200);
       await use({
         origin,
+        async withNotesUnavailable(operation) {
+          await database!.query("ALTER TABLE notes RENAME TO notes_unavailable");
+          try {
+            await operation();
+          } finally {
+            await database!.query("ALTER TABLE notes_unavailable RENAME TO notes");
+          }
+        },
         async revokeSessions(email) {
           if (provider) provider.revokeSessions(email);
           else

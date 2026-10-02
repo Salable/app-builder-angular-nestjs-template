@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { gzipSync } from "node:zlib";
@@ -10,7 +11,6 @@ export async function startNeonAuthTestService() {
   const users = new Map<string, User>();
   const sessions = new Map<string, User>();
   const receivedCookies: string[] = [];
-  let sequence = 0;
   let available = true;
   const server = createServer((request, response) => {
     void handle(request, response).catch(() => {
@@ -68,7 +68,7 @@ export async function startNeonAuthTestService() {
     if (signingUp) {
       if (user) return reply(response, { message: "Account already exists." }, 400);
       user = {
-        id: `user-${++sequence}`,
+        id: randomUUID(),
         email: body.email,
         name: body.name!,
         password: body.password,
@@ -77,7 +77,7 @@ export async function startNeonAuthTestService() {
     }
     if (!user || user.password !== body.password)
       return reply(response, { message: "Invalid email or password." }, 401);
-    const nextToken = `session-${++sequence}`;
+    const nextToken = randomUUID();
     sessions.set(nextToken, user);
     return reply(
       response,

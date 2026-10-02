@@ -51,12 +51,47 @@ export class ProblemDetailFilter implements ExceptionFilter {
       instance: request.path,
       correlationId: `corr_${randomUUID()}`,
     };
+    if (problem.status >= 500) reportFailureAfterResponse(error, problem, response);
     response
       .status(problem.status)
       .set("cache-control", "private, no-store")
+      .set("x-correlation-id", problem.correlationId)
       .type("application/problem+json")
       .json(problem);
   }
+}
+
+function reportFailureAfterResponse(
+  error: unknown,
+  problem: ProblemDetail,
+  response: Response,
+): void {
+  response.once("finish", () => {
+    try {
+      console.error("Request failed", {
+        correlationId: problem.correlationId,
+        code: problem.code,
+        status: problem.status,
+        instance: problem.instance,
+        error: errorDiagnostic(error),
+      });
+    } catch {
+      // Logging must not change the response or escape as another failure.
+    }
+  });
+}
+
+function errorDiagnostic(error: unknown) {
+  if (!(error instanceof Error)) return { type: "NonErrorThrown" };
+  const code: unknown = Reflect.get(error, "code");
+  return {
+    type: error.constructor.name,
+    // SQLSTATE and Node error codes identify failures without logging messages,
+    // SQL, provider bodies, credentials, or request content.
+    ...(typeof code === "string" && /^(?:[0-9A-Z]{5}|E[A-Z_]{2,40})$/.test(code)
+      ? { code }
+      : {}),
+  };
 }
 
 function normalizeFailure(error: unknown): ApiProblem {
