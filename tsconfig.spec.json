@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vitest/globals"],
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": ["src/browser/**/*.spec.ts"]
+}

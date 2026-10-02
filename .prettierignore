@@ -1,0 +1,11 @@
+.output/
+.app-builder/
+.vercel/
+coverage/
+test-results/
+playwright-report/
+node_modules/
+package-lock.json
+openapi/openapi.json
+dist/
+.angular/

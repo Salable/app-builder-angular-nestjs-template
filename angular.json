@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "cli": { "analytics": false, "cache": { "enabled": false } },
+  "projects": {
+    "web": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src/browser",
+      "architect": {
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": { "tsConfig": "tsconfig.spec.json" }
+        },
+        "build": {
+          "builder": "@angular/build:application",
+          "configurations": {
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "options": {
+            "browser": "src/browser/bootstrap.ts",
+            "tsConfig": "tsconfig.app.json",
+            "index": "src/browser/index.html",
+            "outputPath": "dist/web",
+            "styles": ["src/browser/styles.css"],
+            "outputHashing": "all"
+          }
+        }
+      }
+    }
+  }
+}

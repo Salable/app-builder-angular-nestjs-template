@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": [],
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "./.angular/out-tsc"
+  },
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "strictInjectionParameters": true
+  },
+  "include": ["src/browser/**/*.ts", "src/contracts/**/*.ts"],
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"]
+}
