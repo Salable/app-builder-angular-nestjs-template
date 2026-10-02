@@ -13,6 +13,8 @@ otherwise null. The owner prioritises that Backlog; do not expand this ticket.
   needed, persist, respond. Prefer guard clauses and early exits. Keep the main
   path flat; avoid deep nesting and `else` after a returning guard. Extract helpers
   for distinct responsibilities, not just to hide complexity.
+  Lint checks those return/ternary patterns, promise handling and exhaustive switches.
+  Nesting above two levels and cyclomatic complexity above 12 produce warnings.
 - Finish processing before writes where practical. Use a transaction when partial
   storage would leave invalid state. Prefer deterministic results and removing
   unnecessary steps over speculative retries, fallbacks or abstractions.

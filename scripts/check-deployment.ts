@@ -27,7 +27,16 @@ try {
   const { default: handler } = await import(
     pathToFileURL(join(isolated, runtime.handler)).href
   );
-  const server = createServer(handler as RequestListener);
+  await verifyHttpResponses(handler as RequestListener);
+} finally {
+  await rm(isolated, { recursive: true, force: true });
+}
+console.log(
+  "Verified Angular static assets and the standalone NestJS Vercel Function.",
+);
+
+async function verifyHttpResponses(handler: RequestListener): Promise<void> {
+  const server = createServer(handler);
   try {
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -51,9 +60,4 @@ try {
       );
     }
   }
-} finally {
-  await rm(isolated, { recursive: true, force: true });
 }
-console.log(
-  "Verified Angular static assets and the standalone NestJS Vercel Function.",
-);

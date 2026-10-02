@@ -8,33 +8,29 @@ const IMAGE =
 
 export async function readSuppliedTestDatabaseUrl(environment: NodeJS.ProcessEnv) {
   const suppliedDatabaseUrl = environment.APP_BUILDER_TEST_DATABASE_URL;
-  if (suppliedDatabaseUrl !== undefined) {
-    if (environment.APP_BUILDER_TEST_DISPOSABLE_DATABASE !== "1") {
-      throw new Error(
-        "APP_BUILDER_TEST_DISPOSABLE_DATABASE=1 is required for a supplied database.",
-      );
+  if (suppliedDatabaseUrl === undefined) return undefined;
+  if (environment.APP_BUILDER_TEST_DISPOSABLE_DATABASE !== "1") {
+    throw new Error(
+      "APP_BUILDER_TEST_DISPOSABLE_DATABASE=1 is required for a supplied database.",
+    );
+  }
+  const parsed = new URL(suppliedDatabaseUrl);
+  if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
+    throw new Error("APP_BUILDER_TEST_DATABASE_URL must be a PostgreSQL URL.");
+  }
+  for (const key of parsed.searchParams.keys()) {
+    if (["host", "hostaddr"].includes(key.toLowerCase())) {
+      throw new Error("PostgreSQL host override parameters are not allowed.");
     }
-    const parsed = new URL(suppliedDatabaseUrl);
-    if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
-      throw new Error("APP_BUILDER_TEST_DATABASE_URL must be a PostgreSQL URL.");
-    }
-    for (const key of parsed.searchParams.keys()) {
-      if (["host", "hostaddr"].includes(key.toLowerCase())) {
-        throw new Error("PostgreSQL host override parameters are not allowed.");
-      }
-    }
-    if (decodeURIComponent(parsed.hostname).includes("/")) {
-      throw new Error("PostgreSQL Unix socket hosts are not allowed.");
-    }
-    const addresses = await lookup(parsed.hostname, { all: true, verbatim: true });
-    if (
-      addresses.length === 0 ||
-      addresses.some(({ address }) => !isLoopback(address))
-    ) {
-      throw new Error(
-        "APP_BUILDER_TEST_DATABASE_URL must identify a disposable loopback database.",
-      );
-    }
+  }
+  if (decodeURIComponent(parsed.hostname).includes("/")) {
+    throw new Error("PostgreSQL Unix socket hosts are not allowed.");
+  }
+  const addresses = await lookup(parsed.hostname, { all: true, verbatim: true });
+  if (addresses.length === 0 || addresses.some(({ address }) => !isLoopback(address))) {
+    throw new Error(
+      "APP_BUILDER_TEST_DATABASE_URL must identify a disposable loopback database.",
+    );
   }
   return suppliedDatabaseUrl;
 }
@@ -55,14 +51,15 @@ async function main() {
     });
     if (exitCode !== 0) process.exitCode = exitCode;
   } finally {
-    if (startedContainer) {
-      const stopped = await run("docker", ["stop", "--timeout", "5", containerName]);
-      if (stopped !== 0) {
-        process.stderr.write("Could not stop disposable PostgreSQL\n");
-        process.exitCode ??= 1;
-      }
-    }
+    if (startedContainer) await stopContainer(containerName);
   }
+}
+
+async function stopContainer(containerName: string): Promise<void> {
+  const stopped = await run("docker", ["stop", "--timeout", "5", containerName]);
+  if (stopped === 0) return;
+  process.stderr.write("Could not stop disposable PostgreSQL\n");
+  process.exitCode ??= 1;
 }
 
 function isLoopback(address: string): boolean {

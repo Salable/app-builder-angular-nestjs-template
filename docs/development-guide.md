@@ -50,8 +50,12 @@ tests cover auth, storage, visible rejection and revocation.
 
 `npm run test:coverage` reports unit coverage for the server utilities and Angular
 client separately. Real HTTP/database and browser checks are additional evidence;
-unit percentages alone do not describe those flows. ESLint's complexity rule warns
-above 12; there is no CRAP tool or score gate in this repository.
+unit percentages alone do not describe those flows. ESLint rejects `else` after a
+return and nested ternaries. Type-aware rules check floating/misused promises and
+exhaustive switches against the server, application and test TypeScript projects.
+Angular ESLint checks duplicate attributes and empty control-flow blocks in inline
+and external templates. Nesting above two levels and cyclomatic complexity above
+12 produce warnings; there is no separate hard complexity limit or CRAP score gate.
 
 ## Deployment
 

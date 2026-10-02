@@ -52,50 +52,51 @@ describe("shared disposable test database runner", () => {
   });
 
   it.each([
-    "success",
-    "child-failure",
-    "signal",
-    "start-failure",
-    "port-failure",
-    "invalid-port",
-    "stop-failure",
-    "missing-command",
-    "missing-executable",
-  ])("propagates %s and cleans up only its own container", async (outcome) => {
-    const fixture = await createFixture();
-    try {
-      const result = run(fixture, outcome);
-      const commands = await calls(fixture);
-      expect(result.status).toBe(
-        outcome === "success" ? 0 : outcome === "child-failure" ? 17 : 1,
-      );
-      if (outcome === "missing-command") {
-        expect(commands).toEqual([]);
-        expect(result.stderr).toContain("Provide a command");
-        return;
+    ["success", 0],
+    ["child-failure", 17],
+    ["signal", 1],
+    ["start-failure", 1],
+    ["port-failure", 1],
+    ["invalid-port", 1],
+    ["stop-failure", 1],
+    ["missing-command", 1],
+    ["missing-executable", 1],
+  ])(
+    "propagates %s and cleans up only its own container",
+    async (outcome, exitCode) => {
+      const fixture = await createFixture();
+      try {
+        const result = run(fixture, outcome);
+        const commands = await calls(fixture);
+        expect(result.status).toBe(exitCode);
+        if (outcome === "missing-command") {
+          expect(commands).toEqual([]);
+          expect(result.stderr).toContain("Provide a command");
+          return;
+        }
+        expect(commands[0]?.[0]).toBe("run");
+        if (outcome === "start-failure") {
+          expect(commands).toHaveLength(1);
+          expect(result.stderr).toContain("Could not start disposable");
+          return;
+        }
+        expect(commands[1]?.[0]).toBe("port");
+        expect(commands[2]).toEqual([
+          "stop",
+          "--timeout",
+          "5",
+          commands[0]![commands[0]!.indexOf("--name") + 1],
+        ]);
+        if (outcome === "success")
+          expect(JSON.parse(result.stdout)).toEqual({ databaseUrl, disposable: "1" });
+        if (outcome === "stop-failure")
+          expect(result.stderr).toContain("Could not stop disposable");
+        if (outcome === "missing-executable") expect(result.stderr).toContain("ENOENT");
+      } finally {
+        await rm(fixture, { recursive: true, force: true });
       }
-      expect(commands[0]?.[0]).toBe("run");
-      if (outcome === "start-failure") {
-        expect(commands).toHaveLength(1);
-        expect(result.stderr).toContain("Could not start disposable");
-        return;
-      }
-      expect(commands[1]?.[0]).toBe("port");
-      expect(commands[2]).toEqual([
-        "stop",
-        "--timeout",
-        "5",
-        commands[0]![commands[0]!.indexOf("--name") + 1],
-      ]);
-      if (outcome === "success")
-        expect(JSON.parse(result.stdout)).toEqual({ databaseUrl, disposable: "1" });
-      if (outcome === "stop-failure")
-        expect(result.stderr).toContain("Could not stop disposable");
-      if (outcome === "missing-executable") expect(result.stderr).toContain("ENOENT");
-    } finally {
-      await rm(fixture, { recursive: true, force: true });
-    }
-  });
+    },
+  );
 });
 
 async function createFixture() {
