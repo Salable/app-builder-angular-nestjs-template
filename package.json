@@ -32,7 +32,7 @@
     "@angular/core": "22.1.0",
     "@angular/forms": "22.1.0",
     "@angular/platform-browser": "22.1.0",
-    "@angular/router": "22.1.0",
+    "@angular/router": "22.2.0",
     "@neondatabase/auth": "0.5.0-beta",
     "@nestjs/common": "11.1.28",
     "@nestjs/core": "11.1.28",
