@@ -42,13 +42,14 @@ GitHub, Vercel and Neon at their external boundaries. Include functional/integra
 coverage and browser happy paths plus a visible error. Remove tests that only
 assert their own fixtures or duplicate production logic.
 
-Run the complete `npm run check` on the final worktree, sequentially, without
+Authors run the complete `npm run check` on the final worktree, sequentially, without
 concurrent constituents. Diagnose failures before rerunning unchanged commands.
 Return `COMPLETED` only for delivered work with green checks; otherwise preserve
 coherent work and return `REVIEW_REQUIRED` with the failure and remaining work.
 Reviewers assess scope and introduced regressions independently, keep source and
-Git state unchanged, and run the same suite. A missing required file is an in-scope
-defect; unrelated findings are Backlog work. Do not manufacture edits for a valid
+Git state unchanged. Read the supplied completed GitHub Actions evidence in
+`reviews/input.json`; do not install dependencies, run tests/builds, reproduce failures or retry CI.
+A missing required file is an in-scope defect; unrelated findings are Backlog work. Do not manufacture edits for a valid
 no-change response on a retained PR.
 
 Coding agents never perform hosted QA, deployments or remote CI retries. Those
@@ -75,3 +76,9 @@ GitHub publication is platform-owned.
 See [README](README.md) for product scope, [development guide](docs/development-guide.md)
 for architecture and commands, and [integrations](docs/agent-integrations.md) for
 auth, local databases, billing, environments and product entry work.
+
+GitHub Actions owns independent verification: `.github/workflows/ci.yml` runs the
+`app-builder/ci` job on the exact PR head, with `npm run check` in the
+`Run complete suite` step. Use local fixtures and a read-only GitHub token, no
+application secrets. Restore this workflow in the foundation ticket if the clone
+omitted it.
