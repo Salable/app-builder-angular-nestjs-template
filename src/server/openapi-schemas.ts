@@ -1,21 +1,9 @@
 import { z } from "zod";
 import type { SchemaObject } from "@nestjs/swagger";
-import {
-  UserSchema,
-  CreateNoteSchema,
-  UpdateNoteSchema,
-  NoteSchema,
-  NotesViewSchema,
-  ProblemDetailSchema,
-  SessionViewSchema,
-} from "../contracts/api";
+import { UserSchema, ProblemDetailSchema, SessionViewSchema } from "../contracts/api";
 
 const schemas = {
   UserDto: UserSchema,
-  CreateNoteDto: CreateNoteSchema,
-  UpdateNoteDto: UpdateNoteSchema,
-  NoteDto: NoteSchema,
-  NotesDto: NotesViewSchema,
   ProblemDetail: ProblemDetailSchema,
   SessionDto: SessionViewSchema,
 };

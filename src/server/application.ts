@@ -5,14 +5,12 @@ import { ExpressAdapter } from "@nestjs/platform-express";
 import express from "express";
 import { ApplicationController } from "./application.controller";
 import { AuthenticationService } from "./authentication.service";
-import { NotesService } from "./notes.service";
 import { ProblemDetailFilter } from "./problem-detail";
-import { NotesController } from "./notes.controller";
 import { serveOpenApi } from "./openapi";
 
 @Module({
-  controllers: [ApplicationController, NotesController],
-  providers: [AuthenticationService, NotesService],
+  controllers: [ApplicationController],
+  providers: [AuthenticationService],
 })
 class ApplicationModule {}
 

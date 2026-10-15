@@ -46,13 +46,13 @@ async function verifyHttpResponses(handler: RequestListener): Promise<void> {
     assert.deepEqual(await health.json(), { status: "ok", apiVersion: "v1" });
     const openapi = await fetch(`${origin}/api/v1/openapi.json`);
     assert.equal(openapi.status, 200);
-    assert.equal(
-      (await openapi.json()).paths["/api/v1/notes"].post.operationId,
-      "createNote",
-    );
-    const rejected = await fetch(`${origin}/api/v1/notes`);
-    assert.equal(rejected.status, 401);
-    assert.equal((await rejected.json()).code, "SIGN_IN_REQUIRED");
+    assert.ok((await openapi.json()).paths["/api/v1/session"].get);
+    const session = await fetch(`${origin}/api/v1/session`);
+    assert.equal(session.status, 200);
+    assert.deepEqual(await session.json(), { user: null });
+    const removedExample = await fetch(`${origin}/api/v1/notes`);
+    assert.equal(removedExample.status, 404);
+    assert.equal((await removedExample.json()).code, "REQUEST_REJECTED");
   } finally {
     if (server.listening) {
       await new Promise<void>((resolve, reject) =>

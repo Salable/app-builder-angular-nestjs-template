@@ -1,11 +1,6 @@
 import { Injectable } from "@angular/core";
 import { z } from "zod";
-import {
-  NoteSchema,
-  NotesViewSchema,
-  ProblemDetailSchema,
-  SessionViewSchema,
-} from "../contracts/api";
+import { ProblemDetailSchema, SessionViewSchema } from "../contracts/api";
 
 export class ApiFailure extends Error {
   constructor(
@@ -20,26 +15,6 @@ export class ApiFailure extends Error {
 export class ApiClient {
   session() {
     return this.request("/api/v1/session", SessionViewSchema);
-  }
-  notes() {
-    return this.request("/api/v1/notes", NotesViewSchema);
-  }
-  createNote(content: string) {
-    return this.request("/api/v1/notes", NoteSchema, {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    });
-  }
-  updateNote(noteId: string, content: string) {
-    return this.request(`/api/v1/notes/${encodeURIComponent(noteId)}`, NoteSchema, {
-      method: "PATCH",
-      body: JSON.stringify({ content }),
-    });
-  }
-  removeNote(noteId: string) {
-    return this.request(`/api/v1/notes/${encodeURIComponent(noteId)}`, z.undefined(), {
-      method: "DELETE",
-    });
   }
   async authenticate(
     mode: "sign-in" | "sign-up",
@@ -92,9 +67,7 @@ export class ApiClient {
           : "The request could not be completed. Try again.",
       );
     }
-    const parsed = schema.safeParse(
-      response.status === 204 ? undefined : await response.json().catch(() => null),
-    );
+    const parsed = schema.safeParse(await response.json().catch(() => null));
     if (!parsed.success)
       throw new ApiFailure(
         "INVALID_RESPONSE",

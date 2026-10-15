@@ -17,19 +17,3 @@ export const UserSchema = z
   .strict();
 export const SessionViewSchema = z.object({ user: UserSchema.nullable() }).strict();
 export type User = z.infer<typeof UserSchema>;
-export const CreateNoteSchema = z
-  .object({ content: z.string().trim().min(1).max(2000) })
-  .strict();
-export const UpdateNoteSchema = CreateNoteSchema;
-export const NoteSchema = z
-  .object({
-    noteId: z.uuid(),
-    content: z.string(),
-    createdAt: z.iso.datetime(),
-    updatedAt: z.iso.datetime(),
-  })
-  .strict();
-export const NotesViewSchema = z.object({ notes: z.array(NoteSchema) }).strict();
-export type Note = z.infer<typeof NoteSchema>;
-export type CreateNoteDto = z.infer<typeof CreateNoteSchema>;
-export type UpdateNoteDto = z.infer<typeof UpdateNoteSchema>;

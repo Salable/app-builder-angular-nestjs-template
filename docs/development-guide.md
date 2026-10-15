@@ -25,7 +25,7 @@ error bodies or fabricate a problem-documentation domain.
 Server failures log their correlation ID, error class and safe SQLSTATE/Node code
 after the response finishes, without exception messages or request contents. A
 failed log cannot affect the response. Retry loading only reloads failed reads;
-failed writes preserve the draft or note and use the original Save/Delete action.
+a failed sign-out retains the current identity and uses the original Sign out action.
 
 `/api/v1/openapi.json` serves the NestJS OpenAPI document. Request validation and
 document schemas share `src/contracts/api.ts`; controller decorators provide
@@ -33,24 +33,26 @@ routes, operations and responses. Run `npm run generate:openapi` after a contrac
 change. `generate:check` rejects a stale `openapi/openapi.json`. The browser's
 `ApiClient` validates responses using those same shared schemas.
 
-| Request                         | Outcome                               |
-| ------------------------------- | ------------------------------------- |
-| `GET /api/v1/notes`             | List the current user's notes         |
-| `GET /api/v1/notes/{noteId}`    | Read one owned note                   |
-| `POST /api/v1/notes`            | Create from `{ content }`; return 201 |
-| `PATCH /api/v1/notes/{noteId}`  | Update `{ content }`                  |
-| `DELETE /api/v1/notes/{noteId}` | Delete; return 204                    |
+| Request               | Outcome                                |
+| --------------------- | -------------------------------------- |
+| `GET /api/v1/health`  | Public process health                  |
+| `GET /api/v1/session` | Current user or `null` when signed out |
 
-Responses name identity and time explicitly: `noteId`, `createdAt`, `updatedAt`.
-Times are UTC ISO 8601 strings. The session returns `userId`, `displayName` and
-`email`. Clients never supply ownership. Third-party `/api/auth/*` protocol
-routes remain owned by the selected auth adapter, outside the resource OpenAPI.
+The session returns `userId`, `displayName` and `email`. Third-party `/api/auth/*`
+protocol routes remain owned by the selected auth adapter, outside the resource
+OpenAPI. Product tickets add their own domain routes, schemas and migrations.
+The initial schema contains auth storage only; there is no sample notes table.
+
+The public landing page, auth forms and signed-in shell explain where the user is.
+Their copy and presentation match the TanStack starter. Product work replaces all
+placeholder content and branding, including auth-page presentation, while retaining
+auth/session mechanics and error handling.
 
 `npm run check` is authoritative: format, lint, types, combined production build,
 deployment output validation, unit tests, real PostgreSQL/HTTP integration, and
 desktop/mobile browser tests. Integration uses the real NestJS app and both auth
 paths; only managed Neon is replaced by a local HTTP protocol fixture. Browser
-tests cover auth, storage, visible rejection and revocation.
+tests cover the public/signed-in shells, auth, session recovery, visible rejection and revocation.
 
 `npm run test:coverage` reports unit coverage for the server utilities and Angular
 client separately. Real HTTP/database and browser checks are additional evidence;

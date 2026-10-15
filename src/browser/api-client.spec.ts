@@ -26,14 +26,14 @@ describe("shared API client", () => {
             status: 401,
             code: "SIGN_IN_REQUIRED",
             detail: "Sign in to continue.",
-            instance: "/api/v1/notes",
+            instance: "/api/v1/session",
             correlationId: "corr_fixture",
           },
           { status: 401 },
         ),
       ),
     );
-    await expect(TestBed.inject(ApiClient).notes()).rejects.toMatchObject({
+    await expect(TestBed.inject(ApiClient).session()).rejects.toMatchObject({
       code: "SIGN_IN_REQUIRED",
       message: "Sign in to continue.",
     });
@@ -78,17 +78,6 @@ describe("shared API client", () => {
       });
     });
   }
-  it("accepts a deletion without a response body", async () => {
-    const fetch = vi.fn(async () => new Response(null, { status: 204 }));
-    vi.stubGlobal("fetch", fetch);
-    await expect(
-      TestBed.inject(ApiClient).removeNote("note/id"),
-    ).resolves.toBeUndefined();
-    expect(fetch).toHaveBeenCalledWith(
-      "/api/v1/notes/note%2Fid",
-      expect.objectContaining({ method: "DELETE", credentials: "same-origin" }),
-    );
-  });
   it("keeps unexpected errors out of the presentation", () => {
     expect(failureMessage(new Error("private error"))).toBe(
       "Something went wrong. Try again.",

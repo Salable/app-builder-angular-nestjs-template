@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mock, test } from "node:test";
+import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { createApplication } from "../src/server/application";
 import { PostgresDatabase } from "../src/persistence/database";
@@ -9,7 +9,7 @@ import { ProblemDetailSchema } from "../src/contracts/api";
 import { readSuppliedTestDatabaseUrl } from "../scripts/run-with-test-database";
 import { startNeonAuthTestService } from "../scripts/neon-auth-test-service";
 
-await test("NestJS, real authentication, migrations and PostgreSQL protect each user's notes", async () => {
+await test("NestJS, real authentication and PostgreSQL isolate and revoke sessions", async () => {
   const databaseUrl = await readSuppliedTestDatabaseUrl(process.env);
   assert.ok(databaseUrl);
   const database = new PostgresDatabase(databaseUrl);
@@ -17,24 +17,31 @@ await test("NestJS, real authentication, migrations and PostgreSQL protect each 
     await waitForDatabase(database);
     await migrateToLatest(database);
     assert.equal((await migrateToLatest(database)).length, 1);
-    const before = await database.query("SELECT count(*) AS count FROM notes");
+    const tables = await database.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
+    );
+    assert.equal(
+      tables.rows.some((row) => row.tablename === "notes"),
+      false,
+    );
+    const before = await database.query("SELECT count(*) AS count FROM verification");
     await assert.rejects(
       database.transaction(async (session) => {
         await session.query(
-          "INSERT INTO notes (note_id, owner_user_id, content) VALUES ($1, $2, $3)",
-          [randomUUID(), "rollback-owner", "not committed"],
+          'INSERT INTO verification (id, identifier, value, "expiresAt") VALUES ($1, $2, $3, CURRENT_TIMESTAMP)',
+          [randomUUID(), "rollback", "not committed"],
         );
         throw new Error("Abort this operation");
       }),
       /Abort this operation/,
     );
     assert.deepEqual(
-      (await database.query("SELECT count(*) AS count FROM notes")).rows,
+      (await database.query("SELECT count(*) AS count FROM verification")).rows,
       before.rows,
     );
 
     for (const managed of [false, true]) {
-      await verifyPrivateNotes(managed, databaseUrl, database);
+      await verifySessions(managed, databaseUrl);
     }
     assert.equal((await rollbackLastMigration(database))?.version, "0001");
     assert.equal(await rollbackLastMigration(database), undefined);
@@ -83,11 +90,7 @@ async function waitForDatabase(database: PostgresDatabase): Promise<void> {
   throw lastError;
 }
 
-async function verifyPrivateNotes(
-  managed: boolean,
-  databaseUrl: string,
-  database: PostgresDatabase,
-): Promise<void> {
+async function verifySessions(managed: boolean, databaseUrl: string): Promise<void> {
   const provider = managed ? await startNeonAuthTestService() : undefined;
   Object.assign(process.env, {
     NODE_ENV: "test",
@@ -156,7 +159,7 @@ async function verifyPrivateNotes(
       "NOT_FOUND",
     );
     await problem(
-      await fetch(`${origin}/api/v1/notes`, {
+      await fetch(`${origin}/api/auth/sign-out`, {
         method: "POST",
         headers: { cookie: alice, origin, "content-type": "application/json" },
         body: "{",
@@ -167,161 +170,46 @@ async function verifyPrivateNotes(
     const openapi = await request("/api/v1/openapi.json").then((response) =>
       response.json(),
     );
-    assert.equal(openapi.paths["/api/v1/notes"].post.operationId, "createNote");
-    assert.equal(
-      openapi.paths["/api/v1/notes/{noteId}"].patch.operationId,
-      "updateNote",
-    );
-    assert.deepEqual(openapi.components.schemas.CreateNoteDto.required, ["content"]);
+    assert.deepEqual(Object.keys(openapi.paths).sort(), [
+      "/api/v1/health",
+      "/api/v1/session",
+    ]);
+    assert.deepEqual(await request("/api/v1/session").then((r) => r.json()), {
+      user: null,
+    });
     assert.equal(
       (await request("/api/v1/session", alice).then((response) => response.json())).user
         .displayName,
       "Alice",
     );
-    await problem(await request("/api/v1/notes"), 401, "SIGN_IN_REQUIRED");
-    await problem(
-      await request("/api/v1/notes", alice, { content: " " }),
-      400,
-      "VALIDATION_FAILED",
-    );
-    await problem(
-      await request("/api/v1/notes", alice, {
-        content: "injected",
-        ownerId: "Bob",
-      }),
-      400,
-      "VALIDATION_FAILED",
-    );
+    const bobSession = await request("/api/v1/session", bob).then((r) => r.json());
+    assert.equal(bobSession.user.displayName, "Bob");
     await problem(
       await request(
-        "/api/v1/notes",
+        "/api/auth/sign-out",
         alice,
-        { content: "wrong origin" },
+        {},
         "POST",
         "https://untrusted.example",
       ),
       403,
       "INVALID_ORIGIN",
     );
-    const created = await request("/api/v1/notes", alice, {
-      content: "  Private to Alice  ",
-    });
-    assert.equal(created.status, 201);
-    const note = await created.json();
-    assert.equal(note.content, "Private to Alice");
-    assert.deepEqual(
-      await request(`/api/v1/notes/${note.noteId}`, alice).then((response) =>
-        response.json(),
-      ),
-      note,
-    );
-    await problem(
-      await request(`/api/v1/notes/${note.noteId}`, bob),
-      404,
-      "NOTE_NOT_FOUND",
-    );
-    await problem(
-      await request(
-        `/api/v1/notes/${note.noteId}`,
-        bob,
-        { content: "Not mine" },
-        "PATCH",
-      ),
-      404,
-      "NOTE_NOT_FOUND",
-    );
-    await problem(
-      await request(`/api/v1/notes/${note.noteId}`, alice, {}, "PATCH"),
-      400,
-      "VALIDATION_FAILED",
-    );
-    await problem(
-      await request("/api/v1/notes/not-an-id", alice),
-      400,
-      "VALIDATION_FAILED",
-    );
-    await problem(
-      await request(
-        "/api/v1/notes/not-an-id",
-        alice,
-        { content: "Invalid ID" },
-        "PATCH",
-      ),
-      400,
-      "VALIDATION_FAILED",
-    );
-    const updated = await request(
-      `/api/v1/notes/${note.noteId}`,
-      alice,
-      { content: "Edited by Alice" },
-      "PATCH",
-    );
-    assert.equal(updated.status, 200);
-    assert.equal((await updated.json()).content, "Edited by Alice");
-    assert.deepEqual(
-      (await request("/api/v1/notes", bob).then((response) => response.json())).notes,
-      [],
-    );
-    await problem(
-      await request(`/api/v1/notes/${note.noteId}`, bob, undefined, "DELETE"),
-      404,
-      "NOTE_NOT_FOUND",
-    );
-    await problem(
-      await request("/api/v1/notes/not-an-id", alice, undefined, "DELETE"),
-      400,
-      "VALIDATION_FAILED",
-    );
-    assert.equal(
-      (await request("/api/v1/notes", alice).then((response) => response.json())).notes
-        .length,
-      1,
-    );
-    assert.equal(
-      (await request(`/api/v1/notes/${note.noteId}`, alice, undefined, "DELETE"))
-        .status,
-      204,
-    );
-    await problem(
-      await request(`/api/v1/notes/${note.noteId}`, alice, undefined, "DELETE"),
-      404,
-      "NOTE_NOT_FOUND",
-    );
+    await problem(await request("/api/v1/notes", alice), 404, "REQUEST_REJECTED");
     await problem(await request("/api/v1/missing"), 404, "REQUEST_REJECTED");
-    await database.query("ALTER TABLE notes RENAME TO notes_unavailable");
-    const diagnostic = mock.method(console, "error", () => undefined);
-    try {
-      const failure = await problem(
-        await request("/api/v1/notes?token=private-query", alice),
-        500,
-        "INTERNAL_ERROR",
-      );
-      assert.deepEqual(
-        diagnostic.mock.calls.map(({ arguments: args }) => args),
-        [
-          [
-            "Request failed",
-            {
-              correlationId: failure.correlationId,
-              code: "INTERNAL_ERROR",
-              status: 500,
-              instance: "/api/v1/notes",
-              error: { type: "DatabaseError", code: "42P01" },
-            },
-          ],
-        ],
-      );
-    } finally {
-      diagnostic.mock.restore();
-      await database.query("ALTER TABLE notes_unavailable RENAME TO notes");
-    }
     if (provider) {
       provider.setAvailable(false);
-      await problem(await request("/api/v1/notes", alice), 503, "AUTH_UNAVAILABLE");
+      await problem(await request("/api/v1/session", alice), 503, "AUTH_UNAVAILABLE");
       provider.setAvailable(true);
     }
     assert.equal((await request("/api/auth/sign-out", alice, {})).status, 200);
-    await problem(await request("/api/v1/notes", alice), 401, "SIGN_IN_REQUIRED");
+    assert.deepEqual(await request("/api/v1/session", alice).then((r) => r.json()), {
+      user: null,
+    });
+    assert.deepEqual(
+      await request("/api/v1/session", bob).then((r) => r.json()),
+      bobSession,
+    );
   } finally {
     await app.close();
     await provider?.close();

@@ -47,12 +47,3 @@ CREATE TABLE "verification" (
 CREATE INDEX "session_userId_idx" ON "session" ("userId");
 CREATE INDEX "account_userId_idx" ON "account" ("userId");
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");
-
-CREATE TABLE notes (
-  note_id uuid PRIMARY KEY,
-  owner_user_id text NOT NULL,
-  content text NOT NULL CHECK (length(btrim(content)) BETWEEN 1 AND 2000),
-  created_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
-  updated_at timestamptz NOT NULL DEFAULT transaction_timestamp()
-);
-CREATE INDEX notes_owner_idx ON notes (owner_user_id, created_at);

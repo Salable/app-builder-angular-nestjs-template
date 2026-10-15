@@ -42,12 +42,6 @@ export class AuthenticationService {
     }
   }
 
-  async requireUser(request: Request) {
-    const user = await this.currentUser(request);
-    if (!user) throw new ApiProblem(401, "SIGN_IN_REQUIRED", "Sign in to continue.");
-    return user;
-  }
-
   assertSameOrigin(request: Request): void {
     if (request.headers.origin !== resolveApplicationOrigin())
       throw new ApiProblem(403, "INVALID_ORIGIN", "The request origin is not allowed.");

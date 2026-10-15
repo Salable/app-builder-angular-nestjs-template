@@ -1,42 +1,33 @@
 import { Component, inject, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { ApiClient, failureMessage } from "./api-client";
 import { SessionService } from "./session.service";
 
 @Component({
   selector: "app-auth-page",
-  imports: [FormsModule, RouterLink],
+  imports: [RouterLink],
   template: `
     <section class="card auth-card">
-      <p class="eyebrow">Your private workspace</p>
-      <h1>{{ mode === "sign-up" ? "Make yourself at home." : "Welcome back." }}</h1>
+      <p class="eyebrow">Account access</p>
+      <h1>{{ mode === "sign-up" ? "Create your account" : "Sign in" }}</h1>
       <p>
         {{
           mode === "sign-up"
-            ? "Create an account to begin."
-            : "Sign in to pick up where you left off."
+            ? "Use this form to create an account."
+            : "Use this form to access the application."
         }}
       </p>
-      <form (ngSubmit)="submit()">
+      <form #form (submit)="$event.preventDefault(); submit(form)">
         @if (mode === "sign-up") {
-          <label
-            >Name<input name="name" [(ngModel)]="name" autocomplete="name" required
-          /></label>
+          <label>Name<input name="name" autocomplete="name" required /></label>
         }
         <label
-          >Email<input
-            name="email"
-            type="email"
-            [(ngModel)]="email"
-            autocomplete="email"
-            required
+          >Email<input name="email" type="email" autocomplete="email" required
         /></label>
         <label
           >Password<input
             name="password"
             type="password"
-            [(ngModel)]="password"
             [attr.autocomplete]="
               mode === 'sign-up' ? 'new-password' : 'current-password'
             "
@@ -48,13 +39,21 @@ import { SessionService } from "./session.service";
         }
         <button [disabled]="busy()">
           {{
-            busy() ? "Please wait…" : mode === "sign-up" ? "Create account" : "Sign in"
+            busy()
+              ? "Please wait…"
+              : mode === "sign-up"
+                ? "Create your account"
+                : "Sign in"
           }}
         </button>
       </form>
-      <a [routerLink]="mode === 'sign-up' ? '/sign-in' : '/sign-up'">{{
-        mode === "sign-up" ? "Already have an account? Sign in" : "Create an account"
-      }}</a>
+      <p>
+        {{ mode === "sign-up" ? "Already have an account?" : "Need an account?" }}
+        <a [routerLink]="mode === 'sign-up' ? '/sign-in' : '/sign-up'">{{
+          mode === "sign-up" ? "Sign in" : "Create an account"
+        }}</a>
+      </p>
+      <a routerLink="/">Return home</a>
     </section>
   `,
 })
@@ -65,16 +64,18 @@ export class AuthPageComponent {
   readonly mode = inject(ActivatedRoute).snapshot.data["mode"] as "sign-in" | "sign-up";
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
-  name = "";
-  email = "";
-  password = "";
-
-  async submit() {
+  async submit(form: HTMLFormElement) {
     if (this.busy()) return;
+    const fields = new FormData(form);
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.api.authenticate(this.mode, this.email, this.password, this.name);
+      await this.api.authenticate(
+        this.mode,
+        String(fields.get("email") ?? ""),
+        String(fields.get("password") ?? ""),
+        String(fields.get("name") ?? ""),
+      );
       await this.session.refresh();
       await this.router.navigateByUrl("/workspace");
     } catch (error) {

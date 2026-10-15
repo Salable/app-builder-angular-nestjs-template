@@ -4,13 +4,18 @@ One application and one Vercel project: Angular presents the UI; NestJS owns
 validation, authentication, business rules and PostgreSQL persistence.
 
 The foundation includes sign-up, sign-in, sign-out, current-session enforcement,
-a private notes example, predictable API errors and desktop/mobile browser tests.
+predictable API errors and desktop/mobile browser tests.
 Neon supplies deployment-specific database and Auth configuration through Vercel.
 When Neon Auth is disabled during onboarding, Better Auth uses the provisioned
 PostgreSQL database. Both modes use the same application origin and UI.
 
+The public landing page, sign-in, sign-up and signed-in application area are neutral
+skeletons with the same explainer content as the TanStack starter. They contain no
+sample product or CRUD feature. App Builder tasks replace all starter content and
+design while reusing the tested auth and infrastructure.
+
 App Builder replaces this README with the accepted product outline before initial
-tickets start. Product tickets replace the example homepage and workspace.
+tickets start.
 
 ## Local development
 

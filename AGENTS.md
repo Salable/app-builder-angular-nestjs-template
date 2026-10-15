@@ -1,5 +1,10 @@
 # Agent guidance
 
+The landing, sign-in, sign-up and signed-in views are neutral starter skeletons.
+Product tickets replace all starter copy, branding and presentation with the
+accepted product design; retain the tested authentication behavior underneath.
+Do not preserve the explainer as a finished product or invent features from it.
+
 The ticket defines the work. Deliver its smallest coherent outcome, preserve
 unrelated changes, and remove code and tests made obsolete by your change.
 Supporting material is optional: read it when the task needs it. Report concrete
@@ -22,7 +27,7 @@ otherwise null. The owner prioritises that Backlog; do not expand this ticket.
   and persistence free of workflow policy. Angular renders server state, collects
   intent and owns transient UI state.
 - Use plural resource routes and standard CRUD methods. Names must be concise
-  and unambiguous: `noteId`, `content`, `createdAt`. Use one vocabulary across
+  and unambiguous: `userId`, `displayName`, `createdAt`. Use one vocabulary across
   routes, actions, DTOs and clients; name units explicitly. Shared Zod schemas
   define validation and DTO shapes; NestJS generates OpenAPI from actual routes.
 - Throw expected `ApiProblem` errors. The global filter serializes RFC 9457;
