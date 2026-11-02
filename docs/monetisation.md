@@ -72,9 +72,15 @@ clear. Do not invent an expiry from the local clock.
 { "schemaVersion": 1, "mode": "UNCONFIGURED" }
 ```
 
-That is a neutral starter state, not a completed billing feature. The owning
-foundation or billing ticket copies the exact approved agreement and changes the
-mode:
+Non-billing prerequisites may keep this state without catalog or acceptance files;
+they must not claim billing delivery. After those prerequisites, one owning
+commercial-core ticket delivers the complete accepted model's real catalog,
+application bindings and tests, then switches to `REQUIRED` in the same change.
+Do not split catalog provisioning into an earlier ticket, invent future bindings,
+or shrink the approved agreement. Existing `REQUIRED` apps stay `REQUIRED` during
+follow-ups. Only an explicitly approved opt-out lets the foundation record `NONE`.
+
+Copy the exact approved agreement when setting the mode:
 
 - `NONE`: include the approved `agreement` with `decision: "NONE"` and its
   `reason`. This requires explicit product opt-out; never use it to bypass a
