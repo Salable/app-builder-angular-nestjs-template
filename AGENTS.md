@@ -63,6 +63,19 @@ failure. Required Salable Test Mode catalog setup is implementation within a
 billing ticket. Dependency changes must serve the ticket, update the lockfile and
 explain the choice. Do not run `npm audit` or unsolicited advisory remediation.
 
+## Monetisation
+
+For approved billing work, read the pinned Salable skills and
+[monetisation playbook](docs/monetisation.md). Keep authentication, billing-management
+permission and entitlement access separate. The backend owns mutations, settlement
+and permitted actions; subscription labels never substitute for entitlement checks.
+Commit real API/UI regression tests with the feature and run them in the existing
+complete suite and GitHub pipeline. Provider fixtures replace external calls only.
+Populate `.salable/requirements.json` from the approved agreement and validate the
+catalog and acceptance bindings with `npm run check:commercial`; do not use
+`UNCONFIGURED`, `NONE` or missing files to skip required billing work. The validator
+does not prove that the application tests passed. Hosted checks remain separate.
+
 ## Tools and context
 
 The worker supplies Node/npm, Git, rg, Bash, curl, jq, Python 3, build tools and

@@ -40,6 +40,12 @@ files. Do not edit applied migrations. Run `npm run test:integration` and
 
 ## Salable billing
 
+Follow the [monetisation playbook](monetisation.md) and pinned Salable skills for
+the approved commercial model, subscription lifecycle, entitlement access and
+application-owned regression tests. Keep `.salable/requirements.json` aligned with
+the approved agreement. `npm run check:commercial` validates the repository
+bindings; `npm run check` executes the application suite in GitHub as well as locally.
+
 When billing is in the ticket, discover `salable-design` and use supplied Test
 Mode credentials to create products/plans/line items through the API. Read them
 back by ID and save real non-secret IDs to `.salable/manifest.json`; reuse confirmed
