@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": "ac86abcfec3b31f13cae4400b50e9dd083bc198cca954e3394e7c15e968e9f5d",
+  "artifactSha256": "83998c1e0ef4f4dbade1b8cdc51e4067a3f7acebfe58a51c4f4475193c4161a8",
+  "generator": "scripts/generate-commercial-validator.ts"
+}

@@ -13,7 +13,7 @@
     "build:vercel": "npm run build",
     "deploy:vercel": "node --import tsx scripts/deploy-vercel.ts",
     "check:deployment:built": "node --import tsx scripts/check-deployment.ts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run generate:check && npm run build:vercel && npm run check:deployment:built && npm run test && npm run test:integration && npm run test:browser",
+    "check": "npm run check:commercial && npm run format:check && npm run lint && npm run typecheck && npm run generate:check && npm run build:vercel && npm run check:deployment:built && npm run test && npm run test:integration && npm run test:browser",
     "generate:openapi": "node --import tsx scripts/generate-openapi.ts",
     "generate:check": "node --import tsx scripts/generate-openapi.ts --check",
     "format:check": "prettier --check .",
@@ -24,7 +24,8 @@
     "test:integration": "node --import tsx scripts/run-with-test-database.ts node --import tsx --test tests/api.integration.test.ts",
     "test:browser": "node --import tsx scripts/run-with-test-database.ts playwright test",
     "migrate": "node --import tsx scripts/migrate.ts",
-    "migrate:rollback": "node --import tsx scripts/migrate.ts --rollback"
+    "migrate:rollback": "node --import tsx scripts/migrate.ts --rollback",
+    "check:commercial": "node scripts/check-commercial.mjs"
   },
   "dependencies": {
     "@angular/common": "22.1.0",
