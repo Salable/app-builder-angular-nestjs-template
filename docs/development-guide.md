@@ -76,3 +76,11 @@ Migrations use a transaction and advisory lock; never run them on request startu
 Schema changes must remain compatible with the previous deployment until promotion.
 CI has a disposable database and read-only GitHub token; hosted verification and
 production promotion belong to trusted automation or human QA.
+
+## Error logging
+
+Use the shared structured logger and preserve safe causes through adapters and
+public error wrappers. The request boundary reports correlated failures; a catch
+that returns a degraded state reports its own failure. Browser, bootstrap and
+background handlers use the same safe format. See [error logging](error-logging.md)
+for the record, ownership and required application tests.

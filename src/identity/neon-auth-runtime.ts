@@ -12,6 +12,7 @@ import {
   type IdentityProvider,
 } from "./identity-provider";
 import type { NeonAuthRuntimeConfig } from "./neon-auth-config";
+import { DiagnosticError } from "../runtime/error-logger";
 
 export function createNeonAuthRuntime(config: NeonAuthRuntimeConfig) {
   const identity: IdentityProvider = {
@@ -39,15 +40,15 @@ export function createNeonAuthRuntime(config: NeonAuthRuntimeConfig) {
       });
       const result = await auth
         .getSession({ query: { disableCookieCache: "true" } })
-        .catch(() => {
-          throw new IdentityProviderUnavailableError();
+        .catch((error: unknown) => {
+          throw unavailable("PROVIDER_REQUEST_FAILED", error);
         });
       if (result.error) {
-        throw new IdentityProviderUnavailableError();
+        throw unavailable("PROVIDER_REQUEST_FAILED", undefined, result.error.status);
       }
       if (result.data === null) return null;
       if (!result.data?.session || !result.data.user) {
-        throw new IdentityProviderUnavailableError();
+        throw unavailable("INVALID_PROVIDER_RESPONSE");
       }
       const identity = AuthenticatedIdentitySchema.safeParse({
         email: result.data.user.email,
@@ -56,7 +57,7 @@ export function createNeonAuthRuntime(config: NeonAuthRuntimeConfig) {
         userId: result.data.user.id,
       });
       if (!identity.success) {
-        throw new IdentityProviderUnavailableError();
+        throw unavailable("INVALID_PROVIDER_RESPONSE");
       }
       return identity.data;
     },
@@ -110,4 +111,19 @@ export function createNeonAuthRuntime(config: NeonAuthRuntimeConfig) {
     return response;
   }
   return { identity, handler };
+}
+
+function unavailable(code: string, cause?: unknown, httpStatus?: number) {
+  return new IdentityProviderUnavailableError({
+    cause: new DiagnosticError(
+      {
+        category: "provider",
+        dependency: "neon-auth",
+        operation: "identity.session",
+        code,
+        ...(httpStatus === undefined ? {} : { httpStatus }),
+      },
+      { cause },
+    ),
+  });
 }

@@ -64,6 +64,22 @@ renewal only when the provider and agreement permit it. Put the cancel control
 with the active subscription and make pending cancellation and renewal timing
 clear. Do not invent an expiry from the local clock.
 
+## Keep billing failures diagnosable
+
+Use the [shared error logger](error-logging.md). Distinguish missing configuration,
+provider authentication/rejection, transport failure and invalid provider data in
+safe adapter diagnostics. Preserve the upstream status and original cause through
+public error wrappers. A catch that returns billing or access `unavailable`, or
+pending state after failed readback, must record its cause and correlation ID even
+when the HTTP response is 200. Expected settlement delay alone is not an error.
+Keep separate operation labels for mutation and reconciliation. Never log keys,
+owner/grantee identifiers, payment data, checkout URLs or provider response bodies.
+
+Tests must drive real application routes/services with provider-boundary failures,
+assert the safe visible state and diagnostic classification, and prove a failed
+log sink does not change a billing result or trigger another provider mutation.
+Local and GitHub tests use synthetic data; hosted inspection is not author work.
+
 ## Commit the contract and real catalog bindings
 
 `.salable/requirements.json` is always present. The untouched starter contains:

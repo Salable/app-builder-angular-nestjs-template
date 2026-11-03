@@ -11,6 +11,7 @@ import {
   type IdentityProvider,
 } from "../identity/identity-provider";
 import { resolveApplicationOrigin } from "../runtime/application-origin";
+import { DiagnosticError } from "../runtime/error-logger";
 import { ApiProblem } from "./problem-detail";
 
 type Runtime = {
@@ -37,8 +38,18 @@ export class AuthenticationService {
           email: identity.email,
         }
       );
-    } catch {
-      throw new IdentityProviderUnavailableError();
+    } catch (error) {
+      if (error instanceof IdentityProviderUnavailableError) throw error;
+      throw new IdentityProviderUnavailableError({
+        cause: new DiagnosticError(
+          {
+            category: "provider",
+            dependency: "identity",
+            operation: "identity.session",
+          },
+          { cause: error },
+        ),
+      });
     }
   }
 
@@ -64,8 +75,13 @@ export class AuthenticationService {
         ...(request.method === "POST" ? { body: JSON.stringify(request.body) } : {}),
       },
     );
-    const result = await runtime.handler(input).catch(() => {
-      throw new IdentityProviderUnavailableError();
+    const result = await runtime.handler(input).catch((error: unknown) => {
+      throw new IdentityProviderUnavailableError({
+        cause: new DiagnosticError(
+          { category: "provider", dependency: "identity", operation: "identity.proxy" },
+          { cause: error },
+        ),
+      });
     });
     if (!result.ok) throw authenticationFailure(result.status);
     for (const [name, value] of result.headers)
@@ -95,23 +111,39 @@ export class AuthenticationService {
 }
 
 function authenticationFailure(status: number): ApiProblem {
+  const options = {
+    cause: new DiagnosticError({
+      category: "provider",
+      dependency: "identity",
+      operation: "identity.proxy",
+      httpStatus: status,
+    }),
+  };
   if (status >= 500)
     return new ApiProblem(
       503,
       "AUTH_UNAVAILABLE",
       "Authentication is temporarily unavailable. Try again.",
+      options,
     );
   if (status === 429)
     return new ApiProblem(
       429,
       "AUTH_RATE_LIMITED",
       "Too many attempts. Wait before trying again.",
+      options,
     );
   if (status === 401)
-    return new ApiProblem(401, "INVALID_CREDENTIALS", "Check your email and password.");
+    return new ApiProblem(
+      401,
+      "INVALID_CREDENTIALS",
+      "Check your email and password.",
+      options,
+    );
   return new ApiProblem(
     400,
     "AUTH_REQUEST_REJECTED",
     "Check your account details and try again.",
+    options,
   );
 }
