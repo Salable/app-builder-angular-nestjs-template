@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 import { readBetterAuthConfig } from "./better-auth-config";
+import { DiagnosticError, reportError } from "../runtime/error-logger";
 
 export function createBetterAuthRuntime(
   config: ReturnType<typeof readBetterAuthConfig>,
@@ -12,8 +13,22 @@ export function createBetterAuthRuntime(
     idleTimeoutMillis: 10_000,
     max: 5,
   });
-  pool.on("error", () => {
-    console.error("An idle Better Auth PostgreSQL connection failed.");
+  pool.on("error", (error: Error) => {
+    reportError(
+      new DiagnosticError(
+        {
+          category: "database",
+          dependency: "postgresql",
+          operation: "identity.database.idle",
+        },
+        { cause: error },
+      ),
+      {
+        source: "server",
+        operation: "identity.database.idle",
+        code: "DATABASE_CONNECTION_FAILED",
+      },
+    );
   });
 
   const auth = betterAuth({

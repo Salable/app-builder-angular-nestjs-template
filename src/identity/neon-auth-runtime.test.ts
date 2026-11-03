@@ -24,8 +24,75 @@ const session = (id: string) => ({
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 describe("managed Neon authentication runtime", () => {
+  it.each([false, true])(
+    "records an ancillary session-cookie failure while preserving valid identity, broken sink: %s",
+    async (brokenSink) => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {
+        if (brokenSink) throw new Error("Failed log sink");
+      });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const transport = vi.fn<typeof fetch>(async (url) =>
+        String(url).includes("disableCookieCache=true")
+          ? Response.json(session("alice"), {
+              headers: {
+                "set-cookie":
+                  "__Secure-neon-auth.session_token=private-refresh; Path=/; Secure; HttpOnly",
+              },
+            })
+          : new Response("private-invalid-session-json", {
+              headers: { "content-type": "application/json" },
+            }),
+      );
+      vi.stubGlobal("fetch", transport);
+      const identity = await createNeonAuthRuntime(config).identity.authenticate(
+        new Headers({ cookie: "__Secure-neon-auth.session_token=private-existing" }),
+      );
+      expect(identity?.userId).toBe("alice");
+      expect(transport).toHaveBeenCalledTimes(2);
+      expect(log).toHaveBeenCalledOnce();
+      expect(warn).not.toHaveBeenCalled();
+      expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toMatchObject({
+        source: "server",
+        code: "IDENTITY_RESPONSE_DEGRADED",
+        error: {
+          diagnostic: {
+            dependency: "neon-auth",
+            operation: "identity.session",
+            code: "IDENTITY_PROXY_FAILED",
+          },
+        },
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("private");
+    },
+  );
+
+  it("retains the SDK's safe session transport classification without parsing a private response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw Object.assign(new Error("private network data"), { code: "ETIMEDOUT" });
+      }),
+    );
+    await expect(
+      createNeonAuthRuntime(config).identity.authenticate(
+        new Headers({ cookie: "__Secure-neon-auth.session_token=private-existing" }),
+      ),
+    ).rejects.toMatchObject({
+      name: "IdentityProviderUnavailableError",
+      cause: {
+        diagnostic: {
+          dependency: "neon-auth",
+          operation: "identity.session",
+          code: "NETWORK_TIMEOUT",
+        },
+      },
+    });
+  });
   it("isolates concurrent server identities, reads current sessions, and never creates broadcast subscribers", async () => {
     const channel = getGlobalBroadcastChannel();
     const subscribe = vi.spyOn(channel, "subscribe");

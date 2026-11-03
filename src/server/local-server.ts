@@ -1,6 +1,9 @@
 import { resolve } from "node:path";
 import { createApplication } from "./application";
+import { initializeServer } from "./startup";
 
-const { app } = await createApplication(resolve("dist/web/browser"));
-app.enableShutdownHooks();
-await app.listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? "127.0.0.1");
+await initializeServer(async () => {
+  const { app } = await createApplication(resolve("dist/web/browser"));
+  app.enableShutdownHooks();
+  await app.listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? "127.0.0.1");
+});

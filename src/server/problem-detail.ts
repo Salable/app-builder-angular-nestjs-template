@@ -13,14 +13,16 @@ import {
 } from "../identity/identity-provider";
 import { ApplicationOriginConfigurationError } from "../runtime/application-origin";
 import type { ProblemDetail } from "../contracts/api";
+import { reportError } from "../runtime/error-logger";
 
 export class ApiProblem extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
   }
 }
 
@@ -51,7 +53,7 @@ export class ProblemDetailFilter implements ExceptionFilter {
       instance: request.path,
       correlationId: `corr_${randomUUID()}`,
     };
-    if (problem.status >= 500) reportFailureAfterResponse(error, problem, response);
+    reportFailureAfterResponse(error, problem, request, response);
     response
       .status(problem.status)
       .set("cache-control", "private, no-store")
@@ -64,34 +66,21 @@ export class ProblemDetailFilter implements ExceptionFilter {
 function reportFailureAfterResponse(
   error: unknown,
   problem: ProblemDetail,
+  request: Request,
   response: Response,
 ): void {
   response.once("finish", () => {
-    try {
-      console.error("Request failed", {
-        correlationId: problem.correlationId,
-        code: problem.code,
-        status: problem.status,
-        instance: problem.instance,
-        error: errorDiagnostic(error),
-      });
-    } catch {
-      // Logging must not change the response or escape as another failure.
-    }
+    reportError(error, {
+      source: "server",
+      operation: "http.request",
+      correlationId: problem.correlationId,
+      code: problem.code,
+      status: problem.status,
+      method: request.method,
+      // An unmatched URL may contain customer data. Only a registered route is diagnostic.
+      ...(typeof request.route?.path === "string" ? { path: request.route.path } : {}),
+    });
   });
-}
-
-function errorDiagnostic(error: unknown) {
-  if (!(error instanceof Error)) return { type: "NonErrorThrown" };
-  const code: unknown = Reflect.get(error, "code");
-  return {
-    type: error.constructor.name,
-    // SQLSTATE and Node error codes identify failures without logging messages,
-    // SQL, provider bodies, credentials, or request content.
-    ...(typeof code === "string" && /^(?:[0-9A-Z]{5}|E[A-Z_]{2,40})$/.test(code)
-      ? { code }
-      : {}),
-  };
 }
 
 function normalizeFailure(error: unknown): ApiProblem {
