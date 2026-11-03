@@ -10,7 +10,7 @@ await cp("dist/server/vercel-handler.mjs", `${output}/functions/api.func/handler
 await writeFile(
   `${output}/functions/api.func/.vc-config.json`,
   JSON.stringify({
-    runtime: "nodejs24.x",
+    runtime: "nodejs26.x",
     handler: "handler.mjs",
     launcherType: "Nodejs",
     supportsResponseStreaming: true,
