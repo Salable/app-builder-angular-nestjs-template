@@ -19,7 +19,7 @@ tickets start.
 
 ## Local development
 
-Use Node 24 and the committed lockfile. Run `npm ci --no-audit`, then `npm run check`
+Use Node 26.13+ within Node 26 and the committed lockfile. Run `npm ci --no-audit`, then `npm run check`
 for the complete local suite. Tests start disposable PostgreSQL through Docker,
 or use the host-provided fixture in [agent integrations](docs/agent-integrations.md).
 Outside the automation worker, install Chromium once with

@@ -18,7 +18,7 @@ assert.equal(config.routes.at(-1).dest, "/index.html");
 const runtime = JSON.parse(
   await readFile(`${output}/functions/api.func/.vc-config.json`, "utf8"),
 );
-assert.equal(runtime.runtime, "nodejs24.x");
+assert.equal(runtime.runtime, "nodejs26.x");
 assert.match(await readFile(`${output}/static/index.html`, "utf8"), /app-root/);
 // Load only the deployed files, outside the repository and its node_modules.
 const isolated = await mkdtemp(join(tmpdir(), "angular-nestjs-function-"));

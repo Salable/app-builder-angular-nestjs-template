@@ -66,7 +66,7 @@ and external templates. Nesting above two levels and cyclomatic complexity above
 ## Deployment
 
 Vercel runs `npm run deploy:vercel`. `build:vercel` emits Angular static assets and
-one NestJS Node 24 function under `.vercel/output`, using the
+one NestJS Node 26 function under `.vercel/output`, using the
 [Build Output API](https://vercel.com/docs/build-output-api). API routes go to
 NestJS; application routes load Angular. There is one deployment and origin.
 

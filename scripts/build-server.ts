@@ -6,7 +6,7 @@ await build({
   outExtension: { ".js": ".mjs" },
   bundle: true,
   platform: "node",
-  target: "node24",
+  target: "node26",
   format: "esm",
   banner: {
     js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
