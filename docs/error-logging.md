@@ -32,6 +32,11 @@ response. Do not flatten known HTTP evidence into a generic configuration or
 unavailable classification. Map only explicitly recognised provider codes, never
 copy arbitrary error text or an entire response object.
 
+Apply documented endpoint semantics before classifying a response as a failure.
+Salable's grantee entitlement-check 404 is a valid empty-access result, not an
+application error; see [empty entitlements](monetisation.md#empty-entitlements-are-a-valid-access-result).
+This exception does not suppress other upstream 404s or genuine failures.
+
 If no response was received, omit `httpStatus` and retain a safe, specific reason
 such as `PROVIDER_TIMEOUT`, `PROVIDER_TRANSPORT_FAILED` or a constant naming the
 missing configuration prerequisite. Do not invent an upstream status from the

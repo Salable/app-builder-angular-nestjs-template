@@ -39,6 +39,22 @@ an unknown result: do not display it as an unpaid account or allow protected
 content. Return a safe typed problem with a useful retry action. Preserve
 independent authentication and membership checks even when an entitlement exists.
 
+### Empty entitlements are a valid access result
+
+For `GET /api/entitlements/check?granteeId=...` (with `owner` when required by the
+accepted tenant scope), HTTP 404 means that grantee has no entitlements. Normalize
+it in this operation's adapter to an empty entitlement set, just like a valid
+empty success response. Keep protected content locked; do not show access or
+billing as unavailable, emit an application error, or offer outage retries for
+this expected absence. Continue independent subscription reads: no entitlements
+does not establish that no subscription exists or permit a duplicate checkout.
+
+This rule applies only to that entitlement lookup. Never turn all provider 404s
+into empty results. Other endpoints' 404s, authentication/permission failures,
+rate limits, server failures, transport failures and malformed success responses
+retain their own error handling and safe diagnostics. Unknown access remains
+closed; do not convert genuine failures into an unpaid state.
+
 ## Complete the lifecycle
 
 The backend owns the subscription workflow, permitted actions and state revisions.
@@ -157,6 +173,11 @@ error path. Cover:
 
 - Unauthenticated users, unpaid users and each approved capability combination;
   deny cross-account access and unauthorised billing management.
+- The entitlement-check 404 and a valid empty success response through the real
+  adapter and application route/UI: content stays locked, subscription state
+  still loads, and no unavailable state or application error is produced. Cover
+  a subscription that exists despite empty entitlements. Contrast an unrelated
+  endpoint's 404 and genuine provider failures to prove they remain failures.
 - Purchase, exclusive plan switches and permitted compatible subscriptions;
   retain the correct subscription identity and prevent duplicate mutations.
 - Cancellation, resume and expiry; use authoritative provider fixtures for
