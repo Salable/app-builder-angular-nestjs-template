@@ -214,7 +214,7 @@ describe("HTTP failure diagnostics", () => {
             dependency: "neon-auth",
             operation: "identity.session",
             httpStatus: 503,
-            code: "PROVIDER_REQUEST_FAILED",
+            code: "IDENTITY_REQUEST_REJECTED",
           },
         },
       },
