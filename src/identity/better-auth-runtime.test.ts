@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { createBetterAuthRuntime } from "./better-auth-runtime";
+import { Pool } from "pg";
+import {
+  createBetterAuthRuntime,
+  getBetterAuthResponseFailure,
+} from "./better-auth-runtime";
 
 const config = {
   databaseUrl: "postgres://unused:unused@localhost/unused",
@@ -14,6 +18,37 @@ afterEach(() => {
 });
 
 describe("Better Auth's configured diagnostic boundary", () => {
+  it("preserves the SDK's empty500 sign-in response without its raw router logging", async () => {
+    const failure = Object.assign(new Error("private SQL and credentials"), {
+      code: "08006",
+    });
+    vi.spyOn(Pool.prototype, "connect").mockRejectedValue(failure);
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const runtime = createBetterAuthRuntime(config);
+    try {
+      const response = await runtime.handler(
+        new Request(`${config.baseUrl}/api/auth/sign-in/email`, {
+          method: "POST",
+          headers: { origin: config.baseUrl, "content-type": "application/json" },
+          body: JSON.stringify({
+            email: "private@example.test",
+            password: "private-password",
+          }),
+        }),
+      );
+      expect(response.status).toBe(500);
+      expect(response.statusText).toBe("Internal Server Error");
+      expect(await response.text()).toBe("");
+      expect(response.headers.getSetCookie()).toEqual([]);
+      expect(getBetterAuthResponseFailure(response)).toMatchObject({
+        diagnostic: { dependency: "better-auth", operation: "identity.proxy" },
+        cause: failure,
+      });
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      await runtime.close();
+    }
+  });
   it.each(["origin", "referer"])(
     "captures an SDK %s rejection without printing its private query",
     (header) => {

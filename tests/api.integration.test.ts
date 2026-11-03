@@ -170,6 +170,45 @@ await test("real Better Auth keeps diagnostic failures out of successful sign-ou
       );
     }
 
+    await database.query(
+      'ALTER TABLE "user" RENAME TO diagnostic_fixture_user_unavailable',
+    );
+    const assertSignInFailure = async (failSink: boolean) => {
+      brokenSink = failSink;
+      logs.length = 0;
+      const [response, healthy] = await Promise.all([
+        fetch(`${origin}/api/auth/sign-in/email`, {
+          method: "POST",
+          headers: { origin, "content-type": "application/json" },
+          body: JSON.stringify({
+            email: "private@example.test",
+            password: "private-password",
+          }),
+        }),
+        fetch(`${origin}/api/auth/get-session`),
+      ]);
+      const failure = await problem(response, 503, "AUTH_UNAVAILABLE");
+      assert.equal(response.headers.getSetCookie().length, 0);
+      assert.equal(healthy.status, 200);
+      assert.equal(await healthy.json(), null);
+      assert.equal(logs.length, 1);
+      assert.equal(logs[0]?.length, 1);
+      const record = JSON.parse(String(logs[0]?.[0]));
+      assert.equal(record.correlationId, failure.correlationId);
+      assert.equal(record.error.cause.diagnostic.dependency, "better-auth");
+      assert.equal(record.error.cause.cause.code, "42P01");
+      assert.equal(JSON.stringify(logs).includes("private"), false);
+    };
+    try {
+      await assertSignInFailure(false);
+      await assertSignInFailure(true);
+    } finally {
+      brokenSink = false;
+      await database.query(
+        'ALTER TABLE diagnostic_fixture_user_unavailable RENAME TO "user"',
+      );
+    }
+
     logs.length = 0;
     const rejected = await fetch(`${origin}/api/auth/sign-in/email`, {
       method: "POST",
