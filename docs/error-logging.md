@@ -23,6 +23,27 @@ missing key, authentication rejection, transport failure and malformed response
 without leaking provider bodies. Metadata labels must be constants, never user
 values. Preserve existing public RFC 9457 contracts and safe display details.
 
+A caught upstream HTTP failure must retain its actual response status, dependency,
+operation and an allowlisted stable provider error code when known, through every
+wrapper to the final log. `ErrorContext.status` is the application's public HTTP
+status; `FailureDiagnostic.httpStatus` is the upstream response status. A public
+503 or handled unavailable HTTP 200 must not overwrite the upstream 401, 429 or 502. Capture the safe fields at the adapter boundary before discarding the raw
+response. Do not flatten known HTTP evidence into a generic configuration or
+unavailable classification. Map only explicitly recognised provider codes, never
+copy arbitrary error text or an entire response object.
+
+If no response was received, omit `httpStatus` and retain a safe, specific reason
+such as `PROVIDER_TIMEOUT`, `PROVIDER_TRANSPORT_FAILED` or a constant naming the
+missing configuration prerequisite. Do not invent an upstream status from the
+application's response or an SDK's synthetic response. Missing status in an old
+log is not evidence that no upstream request occurred.
+
+The pinned Neon SDK exposes structured status for direct HTTP failures, but some
+optional cookie-refresh failures provide only message text. Preserve those as
+`IDENTITY_SDK_FAILED` with unknown upstream status; do not parse status-shaped
+text as HTTP evidence. Better classification requires a supported structured SDK
+hook, not guessing from messages or copying private response data.
+
 Wrap an adapter failure with safe context and retain its cause:
 
 ```ts
@@ -79,7 +100,11 @@ reportError(error, {
 Exercise real routes/services and browser handling, replacing only external
 providers. Verify safe responses or degraded state and a matching useful record;
 cover configuration, provider rejection, transport and malformed responses when
-the feature has those exits. Include a representative unexpected failure, secrets
+the feature has those exits. For a known upstream rejection, assert its exact
+status and safe code survive adapter normalization and public wrappers even when
+the public response is a different status or handled HTTP 200. For a no-response
+failure, assert the specific reason and absence of an invented upstream status.
+Include a representative unexpected failure, secrets
 in synthetic exception/payload fixtures, and a throwing log sink. Assert the
 original result remains unchanged and billing mutations are not repeated. The
 logger's unit tests supplement these application tests; they cannot replace them.

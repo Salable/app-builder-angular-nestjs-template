@@ -41,26 +41,29 @@ describe("Neon SDK diagnostics at the real authentication HTTP boundary", () => 
       }),
     });
 
-  it.each([false, true])(
-    "preserves successful sign-in after cookie-mint parsing fails, even with a broken sink: %s",
-    async (brokenSink) => {
+  it.each(["malformed JSON", "misleading transport message", "broken sink"])(
+    "preserves successful sign-in and safe cookie-mint diagnostics after %s",
+    async (scenario) => {
       const log = vi.spyOn(console, "error").mockImplementation(() => {
-        if (brokenSink) throw new Error("Sink failed");
+        if (scenario === "broken sink") throw new Error("Sink failed");
       });
       const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-      const transport = vi.fn<typeof fetch>(async (url) =>
-        String(url).includes("/get-session")
-          ? new Response("private-provider-payload-is-not-json", {
-              headers: { "content-type": "application/json" },
-            })
-          : new Response('{"ok":true}', {
-              headers: {
-                "content-type": "application/json",
-                "set-cookie":
-                  "__Secure-neon-auth.session_token=private-session; Path=/; Secure; HttpOnly",
-              },
-            }),
-      );
+      const transport = vi.fn<typeof fetch>(async (url) => {
+        if (String(url).includes("/get-session")) {
+          if (scenario === "misleading transport message")
+            throw new Error("Failed to fetch session data: 502 private-provider-text");
+          return new Response("private-provider-payload-is-not-json", {
+            headers: { "content-type": "application/json" },
+          });
+        }
+        return new Response('{"ok":true}', {
+          headers: {
+            "content-type": "application/json",
+            "set-cookie":
+              "__Secure-neon-auth.session_token=private-session; Path=/; Secure; HttpOnly",
+          },
+        });
+      });
       vi.stubGlobal("fetch", transport);
       const response = await signIn();
       expect(response.status).toBe(200);
@@ -83,6 +86,9 @@ describe("Neon SDK diagnostics at the real authentication HTTP boundary", () => 
           },
         },
       });
+      expect(
+        JSON.parse(String(log.mock.calls[0]?.[0])).error.diagnostic,
+      ).not.toHaveProperty("httpStatus");
       expect(JSON.stringify(log.mock.calls)).not.toContain("private");
     },
   );
@@ -118,32 +124,58 @@ describe("Neon SDK diagnostics at the real authentication HTTP boundary", () => 
         },
       },
     });
+    expect(
+      JSON.parse(String(log.mock.calls[0]?.[0])).error.cause.diagnostic,
+    ).not.toHaveProperty("httpStatus");
     expect(JSON.stringify([problem, log.mock.calls])).not.toContain("private");
   });
 
-  it("records an upstream rejection once at warning level with its actual HTTP status", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({ message: "private provider body" }, { status: 401 }),
-      ),
-    );
-    const response = await signIn();
-    const problem = await response.json();
-    expect(response.status).toBe(401);
-    expect(problem.code).toBe("INVALID_CREDENTIALS");
-    expect(log).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalledOnce();
-    expect(JSON.parse(String(warn.mock.calls[0]?.[0]))).toMatchObject({
-      correlationId: problem.correlationId,
-      error: {
-        cause: { diagnostic: { httpStatus: 401, code: "IDENTITY_REQUEST_REJECTED" } },
-      },
-    });
-    expect(JSON.stringify([problem, warn.mock.calls])).not.toContain("private");
-  });
+  it.each([
+    [401, 401, "INVALID_CREDENTIALS"],
+    [429, 429, "AUTH_RATE_LIMITED"],
+    [502, 503, "AUTH_UNAVAILABLE"],
+  ])(
+    "retains upstream status %i through public status %i",
+    async (upstreamStatus, publicStatus, code) => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          Response.json(
+            { message: "private provider body" },
+            { status: upstreamStatus },
+          ),
+        ),
+      );
+      const response = await signIn();
+      const problem = await response.json();
+      expect(response.status).toBe(publicStatus);
+      expect(problem.code).toBe(code);
+      const sink = publicStatus >= 500 ? log : warn;
+      const unusedSink = publicStatus >= 500 ? warn : log;
+      expect(unusedSink).not.toHaveBeenCalled();
+      expect(sink).toHaveBeenCalledOnce();
+      expect(JSON.parse(String(sink.mock.calls[0]?.[0]))).toMatchObject({
+        status: publicStatus,
+        correlationId: problem.correlationId,
+        error: {
+          cause: {
+            diagnostic: {
+              category: "provider",
+              dependency: "neon-auth",
+              operation: "identity.proxy",
+              httpStatus: upstreamStatus,
+              code: "IDENTITY_REQUEST_REJECTED",
+            },
+          },
+        },
+      });
+      expect(JSON.stringify([problem, log.mock.calls, warn.mock.calls])).not.toContain(
+        "private",
+      );
+    },
+  );
 
   it("does not log a healthy auth response as degraded", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);

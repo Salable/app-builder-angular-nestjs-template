@@ -90,6 +90,36 @@ describe("safe application error logger", () => {
       status: 200,
       error: { diagnostic: { category: "configuration", code: "KEY_MISSING" } },
     });
+    reportError(
+      new Error("private public-wrapper message", {
+        cause: new DiagnosticError({
+          category: "provider",
+          dependency: "salable",
+          operation: "subscriptions.read",
+          httpStatus: 429,
+          code: "PROVIDER_RATE_LIMITED",
+        }),
+      }),
+      { ...context, status: 200 },
+    );
+    expect(output).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(output.mock.calls[1]?.[0] as string)).toMatchObject({
+      code: "BILLING_UNAVAILABLE",
+      status: 200,
+      correlationId: context.correlationId,
+      error: {
+        cause: {
+          diagnostic: {
+            category: "provider",
+            dependency: "salable",
+            operation: "subscriptions.read",
+            httpStatus: 429,
+            code: "PROVIDER_RATE_LIMITED",
+          },
+        },
+      },
+    });
+    expect(JSON.stringify(output.mock.calls)).not.toContain("private");
   });
 
   it("uses warning severity for an expected rejection and sanitizes context", () => {
