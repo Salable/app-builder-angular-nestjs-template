@@ -98,7 +98,7 @@ function inspectError(
         : undefined,
     diagnostic:
       error instanceof DiagnosticError ? diagnostic(error.diagnostic) : undefined,
-    frames: callsites(readStack(error)),
+    frames: callsites(error, readStack(error)),
     ...(cause === undefined ? {} : { cause: describeError(cause, seen, depth + 1) }),
   };
 }
@@ -132,14 +132,26 @@ function diagnostic(input: FailureDiagnostic): Partial<FailureDiagnostic> {
   };
 }
 
-function callsites(stack: unknown): string[] | undefined {
+function callsites(error: Error, stack: unknown): string[] | undefined {
   if (typeof stack !== "string") return undefined;
+  const message = ownValue(error, "message") ?? "";
+  if (typeof message !== "string" || typeof error.name !== "string") return undefined;
+  const header = message === "" ? error.name : `${error.name}: ${message}`;
+  // V8 includes the entire message, including embedded newlines and text that
+  // resembles a frame. Remove that exact header before inspecting any frames.
+  // Unrecognized/custom stack formats are omitted rather than guessed at.
+  if (!stack.startsWith(`${header}\n`)) return undefined;
   const frames: string[] = [];
-  // Skip the message, drop directories, function arguments, URL queries and
-  // fragments. Keep only source/bundle basenames and positions for debugging.
-  for (const line of stack.split("\n").slice(1, 21)) {
+  // Drop directories, function arguments, URL queries and fragments. Keep only
+  // recognizable V8 source/bundle basenames and positions for debugging.
+  for (const line of stack
+    .slice(header.length + 1)
+    .split("\n")
+    .slice(0, 20)) {
     const match =
-      /[/\\]([A-Za-z0-9_.-]{1,100}\.[cm]?[jt]sx?):(\d{1,8}):(\d{1,8})\)?$/.exec(line);
+      /^\s+at .*[/\\]([A-Za-z0-9_.-]{1,100}\.[cm]?[jt]sx?):(\d{1,8}):(\d{1,8})\)?$/.exec(
+        line,
+      );
     if (match) frames.push(`${match[1]}:${match[2]}:${match[3]}`);
     if (frames.length === 6) break;
   }

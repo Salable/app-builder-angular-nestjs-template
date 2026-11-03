@@ -23,7 +23,7 @@ describe("safe application error logger", () => {
         request: { authorization: "private-secret" },
         response: { body: "private-payload" },
         stack:
-          "Error: private-secret\n    at request (/private/user/billing-adapter.ts:42:9)\n    at https://host/path.js?token=private-secret:1:2",
+          "Error: Bearer private-secret user@example.com\n    at request (/private/user/billing-adapter.ts:42:9)\n    at https://host/path.js?token=private-secret:1:2",
       },
     );
     const provider = new DiagnosticError(
@@ -121,11 +121,49 @@ describe("safe application error logger", () => {
     });
     let deep = new Error("base");
     for (let i = 0; i < 8; i++) deep = new Error("wrapper", { cause: deep });
-    deep.stack = `Error\n${Array.from({ length: 12 }, (_, i) => `    at /app/file.ts:${i + 1}:1`).join("\n")}`;
+    deep.stack = `Error: wrapper\n${Array.from({ length: 12 }, (_, i) => `    at /app/file.ts:${i + 1}:1`).join("\n")}`;
     reportError(deep, context);
     const record = JSON.parse(output.mock.calls[1]?.[0] as string);
     expect(record.error.frames).toHaveLength(6);
     expect(record.error.cause.cause.cause.cause).toEqual({ type: "CauseLimit" });
+  });
+
+  it("removes complete multiline messages before extracting genuine runtime frames", () => {
+    const output = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const error = new TypeError(
+      "Provider rejected private-payload\n/private/customer-secret.ts:42:9\n    at /private/private-token.js:71:3",
+    );
+    reportError(error, context);
+    const serialized = output.mock.calls[0]?.[0] as string;
+    const record = JSON.parse(serialized);
+    expect(record.error.type).toBe("TypeError");
+    expect(record.error.frames).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^error-logger\.test\.ts:\d+:\d+$/),
+      ]),
+    );
+    for (const value of ["private-payload", "customer-secret", "private-token"])
+      expect(serialized).not.toContain(value);
+  });
+
+  it("omits unfamiliar stacks and unavailable stack accessors instead of guessing at their contents", () => {
+    const output = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const error = new Error("private text");
+    error.stack = "unknown header\n    at /private/customer-secret.ts:42:9";
+    reportError(error, context);
+    expect(JSON.parse(output.mock.calls[0]?.[0] as string).error).toEqual({
+      type: "Error",
+    });
+    Object.defineProperty(error, "stack", {
+      get() {
+        throw new Error("private stack");
+      },
+    });
+    reportError(error, context);
+    expect(JSON.parse(output.mock.calls[1]?.[0] as string).error).toEqual({
+      type: "Error",
+    });
+    expect(JSON.stringify(output.mock.calls)).not.toContain("private");
   });
 
   it("ignores accessors and invalid metadata instead of printing arbitrary values", () => {

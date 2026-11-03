@@ -76,6 +76,128 @@ await test("missing authentication configuration has a safe and distinct HTTP ou
   }
 });
 
+await test("real Better Auth keeps diagnostic failures out of successful sign-out responses", async (context) => {
+  const databaseUrl = await readSuppliedTestDatabaseUrl(process.env);
+  assert.ok(databaseUrl);
+  const database = new PostgresDatabase(databaseUrl);
+  const { app } = await createApplication();
+  const logs: unknown[][] = [];
+  let brokenSink = false;
+  context.mock.method(console, "error", (...args: unknown[]) => {
+    logs.push(args);
+    if (brokenSink) throw new Error("Diagnostic sink failed");
+  });
+  context.mock.method(console, "warn", (...args: unknown[]) => logs.push(args));
+  Object.assign(process.env, {
+    NODE_ENV: "development",
+    HOST: "127.0.0.1",
+    DATABASE_URL: databaseUrl,
+    BETTER_AUTH_SECRET: "isolated-integration-test-auth-secret",
+  });
+  delete process.env.NEON_AUTH_BASE_URL;
+  delete process.env.VITE_NEON_AUTH_URL;
+  try {
+    await waitForDatabase(database);
+    await migrateToLatest(database);
+    await app.listen(0, "127.0.0.1");
+    const origin = await app.getUrl();
+    process.env.PORT = new URL(origin).port;
+    const signup = await fetch(`${origin}/api/auth/sign-up/email`, {
+      method: "POST",
+      headers: { origin, "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Diagnostic fixture",
+        email: `${randomUUID()}@example.test`,
+        password: "private-fixture-password",
+      }),
+    });
+    assert.equal(signup.status, 200);
+    const cookie = signup.headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; ");
+    await database.query(
+      `CREATE FUNCTION diagnostic_fixture_reject_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private SQL and credentials' USING ERRCODE = 'P0001'; END $$`,
+    );
+    await database.query(
+      `CREATE TRIGGER diagnostic_fixture_delete BEFORE DELETE ON "session" FOR EACH ROW EXECUTE FUNCTION diagnostic_fixture_reject_delete()`,
+    );
+
+    for (const failSink of [false, true]) {
+      brokenSink = failSink;
+      logs.length = 0;
+      const [response, session] = await Promise.all([
+        fetch(`${origin}/api/auth/sign-out`, {
+          method: "POST",
+          headers: { origin, cookie, "content-type": "application/json" },
+          body: "{}",
+        }),
+        fetch(`${origin}/api/v1/session`, { headers: { cookie } }),
+      ]);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { success: true });
+      assert.ok(
+        response.headers.getSetCookie().some((value) => value.includes("Max-Age=0")),
+      );
+      assert.equal(session.status, 200);
+      assert.equal((await session.json()).user.displayName, "Diagnostic fixture");
+      assert.equal(logs.length, 1);
+      const record = JSON.parse(String(logs[0]?.[0]));
+      assert.equal(record.code, "AUTH_RESPONSE_DEGRADED");
+      assert.equal(record.correlationId, response.headers.get("x-correlation-id"));
+      assert.equal(record.error.diagnostic.dependency, "better-auth");
+      assert.equal(record.error.cause.code, "P0001");
+      assert.equal(JSON.stringify(logs).includes("private"), false);
+    }
+
+    brokenSink = false;
+    await database.query('DROP TRIGGER diagnostic_fixture_delete ON "session"');
+    await database.query(
+      'ALTER TABLE "session" RENAME TO diagnostic_fixture_session_unavailable',
+    );
+    try {
+      logs.length = 0;
+      const response = await fetch(`${origin}/api/v1/session`, { headers: { cookie } });
+      const failure = await problem(response, 503, "AUTH_UNAVAILABLE");
+      assert.equal(logs.length, 1);
+      const record = JSON.parse(String(logs[0]?.[0]));
+      assert.equal(record.correlationId, failure.correlationId);
+      assert.ok(JSON.stringify(record).includes("42P01"));
+      assert.equal(JSON.stringify(logs).includes("private"), false);
+    } finally {
+      await database.query(
+        'ALTER TABLE diagnostic_fixture_session_unavailable RENAME TO "session"',
+      );
+    }
+
+    logs.length = 0;
+    const rejected = await fetch(`${origin}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: { origin, cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        email: "private@example.test",
+        password: "private-password",
+        callbackURL: "https://untrusted.example/?private=value",
+      }),
+    });
+    const rejection = await problem(rejected, 400, "AUTH_REQUEST_REJECTED");
+    assert.equal(logs.length, 1);
+    const rejectedRecord = JSON.parse(String(logs[0]?.[0]));
+    assert.equal(rejectedRecord.correlationId, rejection.correlationId);
+    assert.equal(rejectedRecord.error.cause.diagnostic.dependency, "better-auth");
+    assert.equal(JSON.stringify(logs).includes("private"), false);
+  } finally {
+    brokenSink = false;
+    await database.query(
+      'DROP TRIGGER IF EXISTS diagnostic_fixture_delete ON "session"',
+    );
+    await database.query("DROP FUNCTION IF EXISTS diagnostic_fixture_reject_delete()");
+    await app.close();
+    await database.close();
+    process.env.NODE_ENV = "test";
+  }
+});
+
 async function waitForDatabase(database: PostgresDatabase): Promise<void> {
   let lastError: unknown;
   for (let attempt = 0; attempt <= 50; attempt++) {
