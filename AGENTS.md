@@ -74,7 +74,10 @@ Unexpected browser, startup and background failures use the same logger; browser
 console output is not server-collected telemetry. Keep expected validation/access
 rejections distinct from outages. Never log raw messages, full stacks, payloads,
 headers, credentials, cookies, customer data or URLs with query strings. Use
-static operation names and route templates. Logging failure cannot change the
+static operation names and route templates. Treat the complete exception message
+as private, including multiline text that resembles stack frames. Configure SDK
+logging/error hooks so raw vendor logging and swallowed failures cannot bypass the
+shared logger; isolate concurrent requests. Logging failure cannot change the
 response, billing outcome or retry policy. Follow [error logging](docs/error-logging.md).
 
 Foundation work preserves the supplied handlers; feature work wires its own

@@ -63,7 +63,7 @@ describe("managed Neon authentication runtime", () => {
           diagnostic: {
             dependency: "neon-auth",
             operation: "identity.session",
-            code: "IDENTITY_PROXY_FAILED",
+            code: "IDENTITY_SDK_FAILED",
           },
         },
       });

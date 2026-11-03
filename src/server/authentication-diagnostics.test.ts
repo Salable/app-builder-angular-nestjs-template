@@ -79,7 +79,7 @@ describe("Neon SDK diagnostics at the real authentication HTTP boundary", () => 
           diagnostic: {
             dependency: "neon-auth",
             operation: "identity.proxy",
-            code: "IDENTITY_PROXY_FAILED",
+            code: "IDENTITY_SDK_FAILED",
           },
         },
       });

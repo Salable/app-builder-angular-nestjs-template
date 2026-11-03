@@ -54,7 +54,7 @@ export function createNeonAuthRuntime(config: NeonAuthRuntimeConfig) {
         .getSession({ query: { disableCookieCache: "true" } })
         .catch((error: unknown) => {
           throw unavailable(
-            "PROVIDER_REQUEST_FAILED",
+            "IDENTITY_OPERATION_FAILED",
             error,
             undefined,
             diagnostics.failure(),
@@ -62,7 +62,7 @@ export function createNeonAuthRuntime(config: NeonAuthRuntimeConfig) {
         });
       if (result.error) {
         throw unavailable(
-          "PROVIDER_REQUEST_FAILED",
+          "IDENTITY_REQUEST_REJECTED",
           undefined,
           result.error.status,
           diagnostics.failure(),
@@ -174,7 +174,7 @@ function reportSessionDiagnostic(failure: DiagnosticError | undefined): void {
 
 function captureDiagnostics(operation: "identity.proxy" | "identity.session") {
   let failure: DiagnosticError | undefined;
-  const capture = (_message: string, metadata?: unknown) => {
+  const capture = (level: "error" | "warn" | "info", metadata?: unknown) => {
     // SDK metadata can include private URLs and provider/parser messages. Copy
     // only documented HTTP status and the SDK's finite transport classification.
     const fields =
@@ -190,21 +190,26 @@ function captureDiagnostics(operation: "identity.proxy" | "identity.session") {
       NEON_AUTH_NETWORK_ERROR_CODES.some((code) => code === fields.code)
         ? fields.code
         : undefined;
+    const fallbackCode =
+      level === "error" ? "IDENTITY_SDK_FAILED" : "IDENTITY_SDK_WARNING";
     failure = new DiagnosticError({
       category: "provider",
       dependency: "neon-auth",
       operation,
       code:
         networkCode ??
-        (httpStatus === undefined
-          ? "IDENTITY_PROXY_FAILED"
-          : "IDENTITY_REQUEST_REJECTED"),
+        (httpStatus === undefined ? fallbackCode : "IDENTITY_REQUEST_REJECTED"),
       ...(httpStatus === undefined ? {} : { httpStatus }),
     });
   };
 
   return {
     failure: () => failure,
-    log: { error: capture, warn: capture, info: capture, debug: () => undefined },
+    log: {
+      error: (_message: string, metadata?: unknown) => capture("error", metadata),
+      warn: (_message: string, metadata?: unknown) => capture("warn", metadata),
+      info: (_message: string, metadata?: unknown) => capture("info", metadata),
+      debug: () => undefined,
+    },
   };
 }

@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
 import { BetterAuthIdentityProvider } from "../identity/better-auth-identity-provider";
-import { createBetterAuthRuntime } from "../identity/better-auth-runtime";
+import {
+  createBetterAuthRuntime,
+  getBetterAuthResponseFailure,
+} from "../identity/better-auth-runtime";
 import { readBetterAuthConfig } from "../identity/better-auth-config";
 import { readNeonAuthConfig } from "../identity/neon-auth-config";
 import {
@@ -87,7 +90,8 @@ export class AuthenticationService {
         ),
       });
     });
-    const diagnostic = getNeonAuthResponseFailure(result);
+    const diagnostic =
+      getNeonAuthResponseFailure(result) ?? getBetterAuthResponseFailure(result);
     if (!result.ok) throw authenticationFailure(result.status, diagnostic);
     for (const [name, value] of result.headers)
       if (!["set-cookie", "content-encoding", "content-length"].includes(name))
@@ -126,8 +130,10 @@ export class AuthenticationService {
     if (neon) return (this.runtime = createNeonAuthRuntime(neon));
     const runtime = createBetterAuthRuntime(readBetterAuthConfig(process.env));
     return (this.runtime = {
-      identity: new BetterAuthIdentityProvider(() => runtime.auth),
-      handler: (request) => runtime.auth.handler(request),
+      identity: new BetterAuthIdentityProvider(() => ({
+        api: { getSession: runtime.getSession },
+      })),
+      handler: runtime.handler,
       close: runtime.close,
     });
   }
