@@ -68,16 +68,23 @@ clear. Do not invent an expiry from the local clock.
 
 Use the [shared error logger](error-logging.md). Distinguish missing configuration,
 provider authentication/rejection, transport failure and invalid provider data in
-safe adapter diagnostics. Preserve the upstream status and original cause through
-public error wrappers. A catch that returns billing or access `unavailable`, or
+safe adapter diagnostics. Every caught Salable HTTP failure retains its actual
+upstream status, operation, dependency, allowlisted provider code when known and
+original cause through public error wrappers; do not replace it with the public
+503 or an unqualified configuration error. Missing configuration, timeout and
+transport failures without a response need a specific safe reason code and no
+invented HTTP status. A catch that returns billing or access `unavailable`, or
 pending state after failed readback, must record its cause and correlation ID even
 when the HTTP response is 200. Expected settlement delay alone is not an error.
 Keep separate operation labels for mutation and reconciliation. Never log keys,
 owner/grantee identifiers, payment data, checkout URLs or provider response bodies.
 
 Tests must drive real application routes/services with provider-boundary failures,
-assert the safe visible state and diagnostic classification, and prove a failed
-log sink does not change a billing result or trigger another provider mutation.
+assert the safe visible state, diagnostic classification, correlation and exact
+upstream status/code when available, including handled HTTP 200 readback failure.
+Also assert no-response failures have a specific reason and no invented upstream
+status. Prove a failed log sink does not change a billing result or trigger another
+provider mutation.
 Local and GitHub tests use synthetic data; hosted inspection is not author work.
 
 ## Commit the contract and real catalog bindings

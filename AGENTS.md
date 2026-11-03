@@ -67,9 +67,16 @@ explain the choice. Do not run `npm audit` or unsolicited advisory remediation.
 
 Use the shared `src/runtime/error-logger.ts` logger for every owned failure path.
 Preserve safe causes when wrapping errors; adapters attach dependency, operation,
-category and upstream HTTP status with `DiagnosticError`. The final request
-boundary logs once with the same correlation ID returned to the client. A catch
-that returns unavailable or pending state must log there, even for HTTP 200.
+category and upstream HTTP status with `DiagnosticError`. Every caught upstream
+HTTP failure must retain the actual response status, dependency, operation and
+allowlisted provider error code when known through wrapping to the final log;
+never substitute the application's response status or discard this evidence in a
+generic configuration/unavailable error. The final request boundary logs once
+with the same correlation ID returned to the client, including catches that
+return unavailable or pending HTTP 200 state. When no HTTP response was received,
+omit upstream status and record a safe, specific timeout, transport or missing
+configuration reason code; do not invent a status. Missing diagnostic fields are
+not evidence that no provider request occurred.
 Unexpected browser, startup and background failures use the same logger; browser
 console output is not server-collected telemetry. Keep expected validation/access
 rejections distinct from outages. Never log raw messages, full stacks, payloads,
@@ -82,7 +89,10 @@ response, billing outcome or retry policy. Follow [error logging](docs/error-log
 
 Foundation work preserves the supplied handlers; feature work wires its own
 failure paths and adds actual application regression tests for response/state,
-correlated diagnostics, redaction and a failed logger. Run them in the existing
+correlated diagnostics, redaction and a failed logger. For upstream failures,
+assert the actual upstream status/code survives normalization and public wrappers
+alongside a different public status or degraded HTTP 200; cover a no-response
+failure with a specific reason and no invented status. Run them in the existing
 complete local suite and GitHub pipeline. This is a delivery requirement, not a
 recurring audit or a requirement for hosted checks or a new telemetry service.
 
