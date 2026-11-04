@@ -102,6 +102,12 @@ For approved billing work, read the pinned Salable skills and
 [monetisation playbook](docs/monetisation.md). Keep authentication, billing-management
 permission and entitlement access separate. The backend owns mutations, settlement
 and permitted actions; subscription labels never substitute for entitlement checks.
+Shared Salable keys do not authorize reusing another project's catalog. Use only
+this project's established product/plan/price bindings, preserve their provenance,
+and create distinct resources for a new independent product. Matching names or
+prices do not establish ownership. Test that checkout rejects foreign plan IDs
+and sends this project's intended bindings; see the playbook for readback and
+repair rules. Never modify another app's resources to repair this one.
 Salable's grantee entitlement-check 404 means an empty entitlement set, not an
 outage or proof of no subscription. Keep content locked and billing reads usable;
 follow the playbook's endpoint-specific normalization and regression cases.

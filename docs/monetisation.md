@@ -157,8 +157,39 @@ Copy the exact approved agreement when setting the mode:
 
 Create the approved Test Mode catalog with the supplied project credentials.
 Read resources back by ID and write real non-secret IDs to
-`.salable/manifest.json`. Reuse confirmed IDs on resumed work; do not sweep the
-account or mutate Live Mode. This catalog work is implementation, not hosted QA.
+`.salable/manifest.json`. Reuse only IDs established for this exact project on
+resumed work; do not sweep the account or mutate Live Mode. This catalog work is
+implementation, not hosted QA.
+
+### Keep each application's catalog distinct
+
+The account's Salable connection is shared. Access to its catalog does not authorize
+this app to adopt another project's resources. A new independent product creates
+its own product, plans, entitlements, tier groups, line items and prices. Never
+select resources by generic names such as Basic/Pro, matching prices, cadence,
+capabilities or tier tags. Existing-catalog adoption requires explicit product
+approval; it is not a shortcut during implementation.
+
+Preserve non-secret provenance for this project's catalog and read the exact
+product, plans, line items and prices back by ID. Verify their relationships and
+the intended customer-facing product identity before binding checkout. Names and
+self-declared project IDs are evidence to inspect, not trusted ownership proof.
+Salable payer `owner` and entitlement `grantee` identify customers/access recipients,
+not the application that owns a catalog.
+
+Resolve purchases and lifecycle operations from server-owned project bindings.
+Reject foreign product, plan and price IDs; browser input, subscription labels and
+matching commercial terms cannot expand the allowed catalog. Test the real
+application with two products having identical plan names and prices: assert that
+foreign IDs are rejected and the outgoing cart uses only this project's bindings.
+Also cover same-project resumed setup and the visible error for a binding mismatch.
+
+If checkout shows another application's name, establish whether it comes from the
+selected Salable resources, the payment product/line-item mapping, or merchant
+branding before asserting a cause. Correct this project's bindings or create its
+missing resources. Never rename, delete or modify another application's resources,
+transfer existing subscriptions, or reset customer data as a repair shortcut.
+An existing-subscription migration is a separate explicitly approved operation.
 
 Write `.salable/acceptance.json` using the canonical current contract supplied
 with the task: it contains catalog IDs and application route/control bindings,
