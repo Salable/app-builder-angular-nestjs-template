@@ -55,15 +55,42 @@ rate limits, server failures, transport failures and malformed success responses
 retain their own error handling and safe diagnostics. Unknown access remains
 closed; do not convert genuine failures into an unpaid state.
 
+## Hand the customer over to hosted checkout
+
+Unless the accepted experience explicitly differs, an explicit eligible purchase
+click must navigate the current tab to the validated server-returned checkout URL
+as soon as it is available. The backend still authorizes the payer, selected plan
+and permitted action, and validates the provider destination. Do not wait for a
+paid subscription or settled entitlements before navigation: the customer must
+complete checkout first. A ready checkout awaiting customer payment differs from
+an uncertain mutation outcome or post-payment verification.
+
+Show brief redirecting feedback and an accessible continuation link as a fallback.
+Allow the customer to resume the same valid checkout explicitly; use the existing
+operation's duplicate protection rather than create another cart on every click.
+If checkout creation is rejected or the URL is missing/invalid, show a safe
+actionable error without navigating. If the mutation's outcome is unknown, show
+pending read-only recovery; never repeat an uncertain mutation or navigate to an
+untrusted destination.
+
+Passive reads, reloads, read-only verification retries and success/cancel returns
+must not automatically redirect or create another checkout. On return, reconcile
+authoritative provider state and display the actual permitted actions. Neither
+checkout readiness nor a return marker proves payment or grants protected access.
+Keep accepted embedded or other explicit checkout experiences when applicable;
+do not change the approved pricing, lifecycle policy or catalog to implement this
+handoff.
+
 ## Complete the lifecycle
 
 The backend owns the subscription workflow, permitted actions and state revisions.
 The UI presents those facts and submits intent; it must not reconstruct business
 rules from labels, timestamps or its own polling heuristics.
 
-After checkout, plan change, cancellation or resume, reconcile the operation with
-authoritative provider reads. An accepted mutation is not evidence that every
-entitlement read has settled. Represent pending gains and revocations explicitly;
+After checkout returns or an authoritative provider outcome arrives, reconcile
+with provider reads. Also reconcile after a plan change, cancellation or resume.
+An accepted mutation is not evidence that every entitlement read has settled.
+Represent pending gains and revocations explicitly;
 hide unavailable paid content while state is uncertain and do not offer another
 purchase for an unresolved exclusive subscription. Show the actual current plan,
 renewal/cancellation state and permitted next actions once confirmed.
@@ -180,6 +207,14 @@ error path. Cover:
   endpoint's 404 and genuine provider failures to prove they remain failures.
 - Purchase, exclusive plan switches and permitted compatible subscriptions;
   retain the correct subscription identity and prevent duplicate mutations.
+- For hosted purchase, drive the real purchase control, API client, server
+  route/service and provider adapter in a local browser test. Substitute only
+  external provider boundaries, including the checkout destination, and assert
+  actual current-tab navigation while payment is still outstanding. Cover a
+  rejected creation and missing/invalid URL with safe visible recovery, explicit
+  resume without another checkout, and passive/read-only/return flows without
+  redirect loops. A URL response, visible link or mocked navigation helper alone
+  cannot prove the handoff works.
 - Cancellation, resume and expiry; use authoritative provider fixtures for
   future transitions rather than weakening production access rules.
 - Delayed entitlement gains and revocations, provider failures, stale commands,

@@ -105,6 +105,12 @@ and permitted actions; subscription labels never substitute for entitlement chec
 Salable's grantee entitlement-check 404 means an empty entitlement set, not an
 outage or proof of no subscription. Keep content locked and billing reads usable;
 follow the playbook's endpoint-specific normalization and regression cases.
+An eligible hosted-purchase click defaults to immediate current-tab navigation to
+the validated server-returned checkout URL, unless the accepted experience differs.
+Do not wait for paid-state readback. Checkout readiness, awaiting payment and
+post-payment settlement differ; follow the playbook's accessible fallback,
+explicit resume, duplicate prevention and no-redirect-loop rules. Prove actual
+browser navigation through the real application and adapter, not URL presence.
 Commit real API/UI regression tests with the feature and run them in the existing
 complete suite and GitHub pipeline. Provider fixtures replace external calls only.
 Populate `.salable/requirements.json` from the approved agreement and validate the
