@@ -1,8 +1,9 @@
 # Monetisation implementation and tests
 
 Use this guide only for the approved billing work. Read the installed, pinned
-`salable-init`, `salable-design` and `salable-develop` skills and their relevant
-references before choosing provider operations. They define the Salable API and
+`salable-design` and `salable-develop` skills and their relevant references before
+choosing provider operations; use `salable-init` for a readiness question, not a
+recurring setup audit. They define the Salable API and
 catalog semantics; this guide defines the application responsibilities. Keep the
 accepted pricing model and ticket scope. Report an unresolved decision rather than
 inventing a policy, and report unrelated improvements to Backlog.
@@ -74,9 +75,13 @@ pending read-only recovery; never repeat an uncertain mutation or navigate to an
 untrusted destination.
 
 Passive reads, reloads, read-only verification retries and success/cancel returns
-must not automatically redirect or create another checkout. On return, reconcile
-authoritative provider state and display the actual permitted actions. Neither
-checkout readiness nor a return marker proves payment or grants protected access.
+must not automatically send the customer back to hosted checkout or create another
+checkout. On return, reconcile authoritative provider state and display the actual
+permitted actions. A confirmation page may navigate once to the application's
+workspace when the backend confirms the required billing/access state. Keep the
+destination inside the application and prevent repeat navigation or return loops;
+pending, unavailable and cancelled states must not masquerade as confirmed access.
+Neither checkout readiness nor a return marker proves payment or grants protected access.
 Keep accepted embedded or other explicit checkout experiences when applicable;
 do not change the approved pricing, lifecycle policy or catalog to implement this
 handoff.
@@ -244,7 +249,11 @@ error path. Cover:
   actual current-tab navigation while payment is still outstanding. Cover a
   rejected creation and missing/invalid URL with safe visible recovery, explicit
   resume without another checkout, and passive/read-only/return flows without
-  redirect loops. A URL response, visible link or mocked navigation helper alone
+  outbound checkout redirects or duplicate mutations. When the accepted return
+  experience confirms access then opens the workspace, exercise pending and
+  unavailable readback followed by confirmation and one internal navigation;
+  keep cancelled returns separate and prove refresh cannot create a loop.
+  A URL response, visible link or mocked navigation helper alone
   cannot prove the handoff works.
 - Cancellation, resume and expiry; use authoritative provider fixtures for
   future transitions rather than weakening production access rules.
