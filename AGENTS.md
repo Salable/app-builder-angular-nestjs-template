@@ -56,6 +56,13 @@ must serve the ticket, update the lockfile and explain the choice. Do not run
 
 Applicable skills are required; optional supporting context does not waive them.
 
+- Product/feature research: use [product-research](.agents/skills/product-research/SKILL.md).
+  Design direction uses [product-design-discovery](.agents/skills/product-design-discovery/SKILL.md);
+  visible UI work uses [product-interface-design](.agents/skills/product-interface-design/SKILL.md).
+- Rendering, caching, data-access or search decisions: use
+  [application-engineering](.agents/skills/application-engineering/SKILL.md).
+  Apply suitable performance, data-access, accessibility, SEO and privacy
+  baselines as standard; ask about product choices, not routine engineering quality.
 - Changed errors, provider adapters or logging: use
   [app-error-handling](.agents/skills/app-error-handling/SKILL.md) and its local
   reference. Preserve the shared safe logger; diagnostics cannot change outcomes.
